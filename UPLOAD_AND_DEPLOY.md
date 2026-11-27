@@ -53,9 +53,10 @@ This is the **first time the full project is built and tested**, so some failure
 If a job is red: open it, click the failed step, copy the error text (or take a screenshot) and
 send it to me. I'll fix it and give you an updated ZIP or the changed files.
 
-Once the frontend job is green, download the `package-lock` artifact from that run (bottom of the
-run page), put `package-lock.json` into `frontend\`, and commit it. Later installs are then
-reproducible.
+Both lock files (`backend/uv.lock`, `frontend/package-lock.json`) and the pinned
+`backend/requirements.txt` are committed, so CI and the deployed API use the tested versions.
+CI fails if `requirements.txt` drifts from `uv.lock`; regenerate it with
+`uv export --no-dev --no-hashes --no-emit-project -o requirements.txt`.
 
 GitHub Actions is free for public repositories and includes a monthly allowance for private ones;
 one CI run takes roughly 10–15 minutes of it.
@@ -65,7 +66,8 @@ one CI run takes roughly 10–15 minutes of it.
 Do this only after CI is green. Full detail: [docs/deployment.md](docs/deployment.md).
 
 1. **Render** (render.com, sign in with GitHub) → **New → Blueprint** → choose `PAYANI-`.
-   Render reads `render.yaml` and shows a free database and a free web service. Set:
+   Render reads `render.yaml` and shows a free web service. Create a free Neon project first (neon.com, no card) and set:
+   - `DATABASE_URL` = Neon's **direct** (non-pooled) connection string,
    - `BOOTSTRAP_SUPER_ADMIN_EMAIL` = the email you will register with,
    - `CORS_ORIGINS` = leave empty for now.
    Click **Apply**. Wait until `https://<service>.onrender.com/health/ready` shows `"status": "ok"`.
@@ -77,8 +79,8 @@ Do this only after CI is green. Full detail: [docs/deployment.md](docs/deploymen
 5. Open the Netlify URL, register with the bootstrap email, then in Render click
    **Manual Deploy → Deploy latest commit** once. That account becomes Super Administrator.
 
-Staging limits: the free API sleeps after 15 minutes idle (the first request then takes about a
-minute) and the free database is deleted after 30 days. Do not invite real users to staging.
+Staging limits: the free API sleeps after 15 minutes idle (the site waits for it and shows a
+starting-up banner; the first load can take about a minute) and reminders only fire while it is awake. Do not invite real users to staging.
 
 ## 5. Production
 

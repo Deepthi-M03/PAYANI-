@@ -1,3 +1,23 @@
+# Pre-deployment audit (27 Nov 2026)
+
+Run against real PostgreSQL 16, the real API and a real Chromium; nothing mocked in the app.
+
+- **Fixed:** cancelling any booking returned HTTP 500 (a date string was compared with a `date`
+  column in `connect/service.py`), which broke cancellation and refunds.
+- **Fixed:** the stale readiness test (now compares with the real Alembic head) and the
+  design-token test that could not load its CSS path.
+- **Fixed:** after *Sign out* the app could land on the login page instead of home.
+- **Added:** wake-up handling for sleeping free hosting (`frontend/src/lib/wake.ts`); the session
+  is no longer dropped when the server is slow, with a banner and a *Try again* screen.
+- **Added:** the forecast model is trained in the background at start (`WARM_FORECAST_ON_START`).
+- **Added:** lock files and a pinned `requirements.txt`; CI installs with `--locked` / `npm ci`.
+- **Changed:** `render.yaml` no longer creates Render's 30-day free database; use Neon free.
+- **Fixed:** `alembic.ini` now sets `prepend_sys_path`, so migrations run when the package is not
+  installed (found by rehearsing Render's clean build).
+- **CI:** the e2e API relaxes only the register rate limit (`RATE_LIMIT_REGISTER_PER_MINUTE`).
+
+---
+
 # Verification status
 
 Last updated 27 November 2026. "Run" means the check was actually executed; nothing is listed as

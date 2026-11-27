@@ -1,0 +1,36 @@
+# Netlify builds the frontend and proxies /api to the Render backend, so the browser sees
+# one origin and the SameSite=Strict refresh cookie keeps working.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Replace payani-api.onrender.com with your Render service URL if Render assigns a different one.
+[[redirects]]
+  from = "/api/*"
+  to = "https://payani-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health/*"
+  to = "https://payani-api.onrender.com/health/:splat"
+  status = 200
+  force = true
+
+# Single-page app: every other path serves index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "geolocation=(), camera=(), microphone=()"

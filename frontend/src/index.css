@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/*
+ * PAYANI design tokens (Express Navy, docs/adr/0002). Use these tokens only: no ad-hoc hex values in components.
+ */
+@theme {
+  /* Express Navy (approved 27 Nov 2026). Text pairings are WCAG AA or better. */
+  --color-navy: #0b1f3a; /* brand bars, headings on light: 16.5:1 on white */
+  --color-ink: #0b1f3a; /* body text */
+  --color-muted: #4a5562; /* secondary text: 7.6:1 on white */
+  --color-primary: #16335c; /* primary actions: white text 12.6:1 */
+  --color-primary-hover: #0f2747;
+  --color-primary-active: #0b1f3a;
+  --color-signal: #2357b5; /* links and focus: 6.8:1 on white */
+  --color-saffron: #e8731a; /* accent lines and marks only, never body text (3.0:1) */
+  --color-saffron-text: #b5530e; /* saffron when it must be text: 5.0:1 */
+  --color-ivory: #f4f5f2; /* page background */
+  --color-surface: #ffffff; /* panels */
+  --color-mist: #e8ebef; /* quiet fills, hover */
+  --color-line: #d5dae1; /* rules and borders */
+  --color-steel: #6b7480; /* icons, large text: 4.7:1 */
+
+  /* Operational status — always paired with an icon or a word */
+  --color-success: #1e7a46;
+  --color-success-tint: #e6f2ea;
+  --color-warning: #8a5a00;
+  --color-warning-tint: #fdf3dc;
+  --color-error: #c62828;
+  --color-error-tint: #fbe9e9;
+  --color-info: #2357b5;
+  --color-info-tint: #e8effa;
+
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-card: 6px;
+
+  /* Motion tokens. Exits run at roughly 70% of the enter duration. */
+  --ease-ui: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-instant: 120ms;
+  --duration-fast: 200ms;
+  --duration-base: 320ms;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-ivory);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-signal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Plex is used at semibold for headings; tabular figures keep times aligned. */
+  .font-display { font-weight: 600; letter-spacing: -0.012em; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@keyframes route-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}

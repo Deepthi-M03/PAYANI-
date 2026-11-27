@@ -1,0 +1,11 @@
+{
+  "name": "PAYANI — Travel Together. Book Smarter.",
+  "short_name": "PAYANI",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#F4EBDD",
+  "theme_color": "#26332D",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

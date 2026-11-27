@@ -1,0 +1,82 @@
+# Local development stack: db, api, worker, web, mailpit. No paid services, no Redis required.
+# Start with:  python scripts/gen_secrets.py && docker compose up --build
+name: payani
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: payani
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-payani}  # local-only credential
+      POSTGRES_DB: payani
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payani -d payani"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://payani:${POSTGRES_PASSWORD:-payani}@db:5432/payani
+      TEST_DATABASE_URL: postgresql+psycopg://payani:${POSTGRES_PASSWORD:-payani}@db:5432/payani_test
+      ENVIRONMENT: development
+      COOKIE_SECURE: "false"  # http://localhost in development only
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    command: >
+      sh -c "alembic upgrade head &&
+             (python -m payani.seeds.load || echo 'Seeding skipped: run make secrets, then make seed') &&
+             uvicorn payani.main:app --host 0.0.0.0 --port 8000 --reload"
+    # Run as your host user so files the container writes (new migrations, caches)
+    # stay editable on Linux. Defaults to 1000, the usual first user.
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://payani:${POSTGRES_PASSWORD:-payani}@db:5432/payani
+      ENVIRONMENT: development
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    command: python -m payani.worker.main
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      api:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"  # web UI showing every email the app sends locally
+      - "1025:1025"
+
+  web:
+    build: ./frontend
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

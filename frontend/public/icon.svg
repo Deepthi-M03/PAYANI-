@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PAYANI">
+  <rect width="512" height="512" rx="112" fill="#26332D"/>
+  <path d="M96 352 C 176 352, 208 160, 304 160 S 416 256, 416 256" fill="none" stroke="#789F57" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="96" cy="352" r="30" fill="#F4EBDD"/>
+  <circle cx="416" cy="256" r="30" fill="#E5E8CE"/>
+  <text x="256" y="446" text-anchor="middle" font-family="Georgia, serif" font-size="72" fill="#F4EBDD" letter-spacing="8">PAYANI</text>
+</svg>

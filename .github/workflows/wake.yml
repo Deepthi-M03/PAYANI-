@@ -1,0 +1,24 @@
+name: Wake API for reminders
+
+# Free-tier helper (docs/deployment.md). Manual only by default: a 10-minute schedule
+# uses about 4,300 Actions minutes a month, more than a private repository's free
+# allowance. Uncomment the schedule only for a public repository, and only after the
+# WORKER_TICK_TOKEN secret and API_BASE_URL variable are configured.
+on:
+  # schedule:
+  #   - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run one worker pass
+        env:
+          TOKEN: ${{ secrets.WORKER_TICK_TOKEN }}
+          BASE: ${{ vars.API_BASE_URL }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$BASE" ]; then echo "Not configured; skipping."; exit 0; fi
+          curl -fsS -m 90 -X POST -H "X-Worker-Token: $TOKEN" "$BASE/api/v1/internal/tick"

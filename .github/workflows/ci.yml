@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ENVIRONMENT: test
+  JWT_SECRET: ci-only-secret-0123456789-abcdefghijklmnop
+  COOKIE_SECURE: "false"
+  DATABASE_URL: postgresql+psycopg://payani:payani@localhost:5432/payani_test
+  TEST_DATABASE_URL: postgresql+psycopg://payani:payani@localhost:5432/payani_test
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: payani
+          POSTGRES_PASSWORD: payani
+          POSTGRES_DB: payani_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U payani" --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --group dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Migrate
+        run: uv run alembic upgrade head
+      # Advisory: autogenerate can report cosmetic differences (server defaults, index
+      # expressions) that are not real drift. Read the log if this step shows a warning.
+      - name: Models and migrations agree (advisory)
+        continue-on-error: true
+        run: uv run alembic check
+      - name: Downgrade and upgrade cleanly
+        run: uv run alembic downgrade base && uv run alembic upgrade head
+      - name: Tests
+        run: uv run pytest
+      - name: Domain core only (no database)
+        run: uv run pytest tests/unit -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Uses `npm ci` once package-lock.json is committed; until then the lock file this
+      # run resolves is uploaded as an artifact so it can be downloaded and committed.
+      - name: Install dependencies
+        run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: frontend/package-lock.json
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit and component tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: payani
+          POSTGRES_PASSWORD: payani
+          POSTGRES_DB: payani_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U payani" --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Start API
+        working-directory: backend
+        run: |
+          uv sync
+          uv run alembic upgrade head
+          uv run python -m payani.seeds.load --profile catalogue
+          nohup uv run uvicorn payani.main:app --port 8000 > ../api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:8000/health/ready && break; sleep 1; done
+      - name: Playwright
+        working-directory: frontend
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            frontend/playwright-report
+            api.log

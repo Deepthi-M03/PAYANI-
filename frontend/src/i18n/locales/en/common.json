@@ -1,0 +1,126 @@
+{
+  "brand": {
+    "name": "PAYANI",
+    "meaning": "பயணி — Traveller",
+    "tagline": "Travel Together. Book Smarter."
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "admin": "Admin",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "register": "Create account",
+    "skipToContent": "Skip to main content",
+    "primary": "Primary",
+    "search": "Search",
+    "bookings": "Bookings",
+    "groups": "Groups",
+    "pulse": "Pulse",
+    "connect": "Connect",
+    "intelligence": "Intelligence"
+  },
+  "landing": {
+    "eyebrow": "Railway journeys for groups",
+    "headline": "Plan one journey for everyone travelling with you.",
+    "intro": "PAYANI helps groups find direct and connecting trains, split into valid bookings, and get reminded before departure.",
+    "ctaPrimary": "Create your account",
+    "ctaSecondary": "Sign in",
+    "statusTitle": "In development",
+    "statusBody": "PAYANI is being built in phases. Accounts work today. Journey search, group planning and reminders arrive next, using clearly labelled sandbox data.",
+    "pillarsTitle": "What PAYANI is built to do",
+    "pillars": {
+      "book": {
+        "title": "Book",
+        "body": "Compare direct and connecting routes, then hand off to the official booking site."
+      },
+      "intelligence": {
+        "title": "Intelligence",
+        "body": "Route recommendations that explain themselves with real numbers."
+      },
+      "pulse": {
+        "title": "Pulse",
+        "body": "Reminders before departure, with honest labels on every train time."
+      },
+      "connect": {
+        "title": "Connect",
+        "body": "Coordinate with fellow travellers safely. No ticket resale, ever."
+      }
+    },
+    "footer": "PAYANI is not affiliated with Indian Railways or IRCTC."
+  },
+  "auth": {
+    "signInTitle": "Welcome back",
+    "signInIntro": "Sign in to continue planning your journeys.",
+    "registerTitle": "Create your PAYANI account",
+    "registerIntro": "Free, and we only ask for what we need.",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "At least 12 characters. A short sentence works well.",
+    "displayName": "Your name",
+    "submitSignIn": "Sign in",
+    "submitRegister": "Create account",
+    "noAccount": "New to PAYANI?",
+    "haveAccount": "Already have an account?",
+    "errors": {
+      "emailInvalid": "Enter a valid email address.",
+      "passwordShort": "Use at least 12 characters.",
+      "passwordLong": "Use at most 128 characters.",
+      "passwordRequired": "Enter your password.",
+      "nameRequired": "Enter your name.",
+      "nameLong": "Use at most 80 characters."
+    }
+  },
+  "dashboard": {
+    "greeting": "Hello, {{name}}",
+    "intro": "Your PAYANI dashboard. Journey tools arrive in the next phase.",
+    "rolesLabel": "Your access",
+    "comingTitle": "Coming next",
+    "comingBody": "Journey search, route comparison and group planning arrive in Phase 3.",
+    "dataTitle": "How PAYANI labels information",
+    "dataIntro": "Every train time or status you see will carry one of these labels:"
+  },
+  "admin": {
+    "usersTitle": "Users",
+    "usersIntro": "Read-only list. Role changes require a Super Administrator.",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "roles": "Roles",
+      "joined": "Joined"
+    },
+    "empty": "No users yet."
+  },
+  "roles": {
+    "passenger": "Passenger",
+    "admin": "Administrator",
+    "super_admin": "Super Administrator"
+  },
+  "confidence": {
+    "asOf": "as of {{date}}",
+    "simulated": {
+      "label": "Simulated",
+      "description": "Sandbox or synthetic data. Not a real booking or real railway information."
+    },
+    "scheduled": {
+      "label": "Scheduled",
+      "description": "From a published timetable snapshot."
+    },
+    "estimated": {
+      "label": "Estimated",
+      "description": "Calculated or predicted, not observed."
+    },
+    "verified": {
+      "label": "Verified live",
+      "description": "Confirmed live by an authorised provider."
+    }
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you are looking for does not exist or has moved.",
+    "backHome": "Back to home",
+    "genericError": "Something went wrong. Please try again."
+  }
+}

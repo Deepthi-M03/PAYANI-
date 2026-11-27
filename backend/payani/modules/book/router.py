@@ -251,6 +251,20 @@ def _forecaster() -> forecasting.TrainedModel:
         return _model["m"]
 
 
+def warm_forecaster() -> None:
+    """Train the forecast model once, in the background, so the first forecast request after
+    a (re)start is fast instead of waiting for training. The model lives in memory only, so
+    this runs on every process start. A failure is logged and the request path still trains
+    on demand."""
+    import logging
+
+    try:
+        _forecaster()
+        logging.getLogger("payani.forecast").info("forecast model ready")
+    except Exception:  # noqa: BLE001 - never let warm-up take the API down
+        logging.getLogger("payani.forecast").exception("forecast warm-up failed")
+
+
 @router.get("/intelligence/routes")
 def forecast_routes():
     names = catalog_synth.STATION_BY_CODE

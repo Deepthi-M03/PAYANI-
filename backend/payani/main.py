@@ -23,6 +23,11 @@ async def lifespan(app: FastAPI):
     if os.environ.get("RUN_WORKER_IN_API", "").lower() == "true":
         from payani.worker.main import start_in_thread
         stop = start_in_thread()
+    if os.environ.get("WARM_FORECAST_ON_START", "").lower() == "true":
+        import threading
+
+        from payani.modules.book.router import warm_forecaster
+        threading.Thread(target=warm_forecaster, name="payani-forecast-warmup", daemon=True).start()
     yield
     if stop is not None:
         stop.set()

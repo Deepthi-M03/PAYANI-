@@ -179,3 +179,46 @@ def test_forecast_is_synthetic(client):
     assert res.json()["data"]["synthetic"] is True
     card = client.get("/api/v1/intelligence/model-card", headers=bearer(token)).json()
     assert card["synthetic"] is True
+
+
+def test_forecast_model_is_trained_in_background_at_startup(monkeypatch):
+    """With WARM_FORECAST_ON_START=true the model trains at startup, so the first forecast
+    request is served from memory instead of waiting for training."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from payani.modules.book import router as book_router
+
+    monkeypatch.setitem(book_router._model, "m", None)
+    monkeypatch.setenv("WARM_FORECAST_ON_START", "true")
+    from payani.main import app
+
+    with TestClient(app):
+        deadline = time.time() + 60
+        while book_router._model["m"] is None and time.time() < deadline:
+            time.sleep(0.2)
+        assert book_router._model["m"] is not None, "model was not trained by the startup warm-up"
+
+
+def test_forecast_warmup_is_off_by_default(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from payani.modules.book import router as book_router
+
+    monkeypatch.setitem(book_router._model, "m", None)
+    monkeypatch.delenv("WARM_FORECAST_ON_START", raising=False)
+    from payani.main import app
+
+    with TestClient(app):
+        assert book_router._model["m"] is None
+
+
+def test_warmup_failure_never_breaks_startup(monkeypatch):
+    from payani.modules.book import router as book_router
+
+    def boom():
+        raise RuntimeError("training failed")
+
+    monkeypatch.setattr(book_router, "_forecaster", boom)
+    book_router.warm_forecaster()  # must log and return, not raise

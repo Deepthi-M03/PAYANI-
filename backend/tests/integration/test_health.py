@@ -3,9 +3,20 @@ def test_liveness(client):
 
 
 def test_readiness_reports_migration(client):
+    """Readiness reports the newest migration in the repository, whatever its name is."""
+    from pathlib import Path
+
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    backend = Path(__file__).resolve().parents[2]
+    cfg = Config(str(backend / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend / "alembic"))
+    head = ScriptDirectory.from_config(cfg).get_current_head()
+
     res = client.get("/health/ready")
     assert res.status_code == 200
-    assert res.json()["migration"] == "0001_foundation"
+    assert res.json()["migration"] == head
 
 
 def test_security_headers_present(client):

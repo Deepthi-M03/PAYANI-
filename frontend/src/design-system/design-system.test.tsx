@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -60,7 +60,7 @@ describe("ConfidenceBadge", () => {
 });
 
 describe("design tokens", () => {
-  const css = readFileSync(fileURLToPath(new URL("../index.css", import.meta.url)), "utf8").toLowerCase();
+  const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8").toLowerCase();
 
   it("keeps the approved palette identical in CSS and TypeScript", () => {
     for (const hex of Object.values(palette)) expect(css).toContain(hex.toLowerCase());

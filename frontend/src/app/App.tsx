@@ -22,6 +22,7 @@ import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { ApiError } from "../lib/api";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { FullPageLoader } from "../design-system/FullPageLoader";
+import { WakeNotice } from "../design-system/WakeNotice";
 import { AppLayout, MarketingLayout } from "./layouts";
 
 // The public landing page is its own chunk.
@@ -98,6 +99,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <WakeNotice />
         <RouterProvider router={router} />
       </AuthProvider>
     </QueryClientProvider>

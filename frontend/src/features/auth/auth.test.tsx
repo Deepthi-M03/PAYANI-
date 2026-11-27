@@ -4,9 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthProvider } from "./AuthContext";
+import { wakeConfig } from "../../lib/wake";
+import { AuthProvider, useAuth } from "./AuthContext";
 import { LoginPage } from "./LoginPage";
 import { RegisterPage } from "./RegisterPage";
+import { RequireAuth } from "./RequireAuth";
 import { loginSchema, registerSchema } from "./schemas";
 
 function json(status: number, body: unknown) {
@@ -116,5 +118,91 @@ describe("RegisterPage", () => {
     await userEvent.type(screen.getByLabelText("Password"), "aaaaaaaaaaaa");
     await userEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByText("Password is too repetitive.")).toBeInTheDocument();
+  });
+});
+
+describe("returning to a sleeping server", () => {
+  function renderProtected() {
+    const router = createMemoryRouter(
+      [
+        { path: "/login", element: <p>Login page</p> },
+        { path: "/app", element: <RequireAuth><p>Dashboard reached</p></RequireAuth> },
+      ],
+      { initialEntries: ["/app"] },
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("restores the session once the server wakes, without sending the person to the login page", async () => {
+    Object.assign(wakeConfig, { pollMs: 10, bannerDelayMs: 0 });
+    let probes = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/health/live") return ++probes < 3 ? new Response("gateway", { status: 504 }) : json(200, { status: "ok" });
+      if (url.endsWith("/auth/refresh")) return json(200, { access_token: "t", token_type: "bearer", expires_in: 900, user });
+      return json(404, {});
+    });
+    renderProtected();
+    expect(await screen.findByText("Dashboard reached")).toBeInTheDocument();
+    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
+    expect(probes).toBe(3);
+  });
+
+  it("says the server isn't responding (not 'signed out') when it never answers, and recovers on retry", async () => {
+    Object.assign(wakeConfig, { pollMs: 5, budgetMs: 30 });
+    let serverUp = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (!serverUp) return new Response("gateway", { status: 504 });
+      if (url === "/health/live") return json(200, { status: "ok" });
+      if (url.endsWith("/auth/refresh")) return json(200, { access_token: "t", token_type: "bearer", expires_in: 900, user });
+      return json(404, {});
+    });
+    renderProtected();
+    expect(await screen.findByText("PAYANI's server isn't responding yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
+
+    serverUp = true;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Dashboard reached")).toBeInTheDocument();
+  });
+});
+
+describe("signing out", () => {
+  it("sends the person home, not to the login page", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/auth/refresh")) return json(200, { access_token: "t", token_type: "bearer", expires_in: 900, user });
+      if (url.endsWith("/auth/logout")) return new Response(null, { status: 204 });
+      return json(404, {});
+    });
+    function SignOut() {
+      const { logout } = useAuth();
+      return <button onClick={() => void logout()}>Sign out</button>;
+    }
+    const router = createMemoryRouter(
+      [
+        { path: "/", element: <p>Home page</p> },
+        { path: "/login", element: <p>Login page</p> },
+        { path: "/app", element: <RequireAuth><SignOut /></RequireAuth> },
+      ],
+      { initialEntries: ["/app"] },
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(await screen.findByText("Home page")).toBeInTheDocument();
+    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
   });
 });

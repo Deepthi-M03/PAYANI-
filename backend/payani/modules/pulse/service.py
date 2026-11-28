@@ -18,7 +18,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from payani.core.db import utcnow, uuid7
-from payani.domain.catalog_synth import STATION_BY_CODE
 from payani.modules.identity.models import ConsentRecord, User
 from payani.modules.pulse.models import (
     DeviceRegistration,
@@ -130,7 +129,8 @@ def _payload(booking, reminder: JourneyReminder, tz: str) -> tuple[str, dict]:
     when = f"In {h} hour{'s' if h != 1 else ''}" if h and not m else f"In {reminder.offset_minutes} minutes"
     return template, {
         "when": when, "train": first["train_number"], "train_name": first["train_name"],
-        "from_name": STATION_BY_CODE[booking.from_code].name, "to_name": STATION_BY_CODE[booking.to_code].name,
+        "from_name": first.get("from_name", booking.from_code),
+        "to_name": booking.journey["legs"][-1].get("to_name", booking.to_code),
         "dep_time": dep.strftime("%H:%M"), "dep_date": dep.strftime("%d %b %Y"), "arr_time": arr.strftime("%H:%M"),
         "pnr": booking.provider_ref or "", "link": f"/app/bookings/{booking.id}",
     }

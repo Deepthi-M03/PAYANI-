@@ -8,6 +8,32 @@ Right-click `PAYANI.zip` → **Extract All** → choose `C:\` as the destination
 Check that `C:\PAYANI` contains `backend`, `frontend`, `docs`, `.github` and `README.md`.
 (`.github` and `.gitignore` start with a dot; Windows shows them normally.)
 
+### Updating an existing copy (you already have `C:\PAYANI\PAYANI` with a `.git` folder)
+
+Use these steps to update a copy you already have:
+
+1. Extract the new ZIP somewhere else, for example `C:\PAYANI-new`.
+2. Copy the files over your project. This replaces and adds files, and leaves `.git`, `.env`, `node_modules` and `.venv` alone:
+
+   ```powershell
+   robocopy C:\PAYANI-new\PAYANI C:\PAYANI\PAYANI /E /XD node_modules .venv .git
+   ```
+
+3. One file was deleted in this update. Remove it yourself, because robocopy only adds and replaces files:
+
+   ```powershell
+   Remove-Item C:\PAYANI\PAYANI\frontend\public\icon.svg -ErrorAction SilentlyContinue
+   ```
+
+4. In GitHub Desktop, check the list of changed files, then **Commit** and **Push**. Make sure `.env` is **not** in the list.
+5. Apply the new migration (`0004`) before starting the backend:
+
+   ```powershell
+   cd C:\PAYANI\PAYANI\backend; .\.venv\Scripts\Activate.ps1; alembic upgrade head
+   ```
+
+   With Docker, the API container applies it on start.
+
 ## 2. Upload to GitHub with GitHub Desktop (recommended)
 
 The GitHub website accepts at most 100 files per upload and can skip folders whose names start
@@ -53,9 +79,10 @@ This is the **first time the full project is built and tested**, so some failure
 If a job is red: open it, click the failed step, copy the error text (or take a screenshot) and
 send it to me. I'll fix it and give you an updated ZIP or the changed files.
 
-Once the frontend job is green, download the `package-lock` artifact from that run (bottom of the
-run page), put `package-lock.json` into `frontend\`, and commit it. Later installs are then
-reproducible.
+Both lock files (`backend/uv.lock`, `frontend/package-lock.json`) and the pinned
+`backend/requirements.txt` are committed, so CI and the deployed API use the tested versions.
+CI fails if `requirements.txt` drifts from `uv.lock`; regenerate it with
+`uv export --no-dev --no-hashes --no-emit-project -o requirements.txt`.
 
 GitHub Actions is free for public repositories and includes a monthly allowance for private ones;
 one CI run takes roughly 10–15 minutes of it.
@@ -65,7 +92,8 @@ one CI run takes roughly 10–15 minutes of it.
 Do this only after CI is green. Full detail: [docs/deployment.md](docs/deployment.md).
 
 1. **Render** (render.com, sign in with GitHub) → **New → Blueprint** → choose `PAYANI-`.
-   Render reads `render.yaml` and shows a free database and a free web service. Set:
+   Render reads `render.yaml` and shows a free web service. Create a free Neon project first (neon.com, no card) and set:
+   - `DATABASE_URL` = Neon's **direct** (non-pooled) connection string,
    - `BOOTSTRAP_SUPER_ADMIN_EMAIL` = the email you will register with,
    - `CORS_ORIGINS` = leave empty for now.
    Click **Apply**. Wait until `https://<service>.onrender.com/health/ready` shows `"status": "ok"`.
@@ -77,8 +105,8 @@ Do this only after CI is green. Full detail: [docs/deployment.md](docs/deploymen
 5. Open the Netlify URL, register with the bootstrap email, then in Render click
    **Manual Deploy → Deploy latest commit** once. That account becomes Super Administrator.
 
-Staging limits: the free API sleeps after 15 minutes idle (the first request then takes about a
-minute) and the free database is deleted after 30 days. Do not invite real users to staging.
+Staging limits: the free API sleeps after 15 minutes idle (the site waits for it and shows a
+starting-up banner; the first load can take about a minute) and reminders only fire while it is awake. Do not invite real users to staging.
 
 ## 5. Production
 

@@ -2,14 +2,19 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { authApi, refreshSession, setAccessToken, type TokenResponse, type User } from "../../lib/api";
 
-type Status = "loading" | "authenticated" | "anonymous";
+/** "unavailable": the server did not answer (it may still be starting). Not the same as signed out. */
+type Status = "loading" | "authenticated" | "anonymous" | "unavailable";
 
 interface AuthState {
   status: Status;
+  /** True after the person chose to sign out, so protected pages send them home, not to /login. */
+  signedOut: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
   register: (email: string, password: string, name: string) => Promise<User>;
   logout: () => Promise<void>;
+  /** Try restoring the session again after the server was unavailable. */
+  retry: () => void;
   can: (permission: string) => boolean;
 }
 
@@ -18,15 +23,18 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
 
   const accept = useCallback((session: TokenResponse) => {
     setAccessToken(session.access_token);
     setUser(session.user);
     setStatus("authenticated");
+    setSignedOut(false);
     return session.user;
   }, []);
 
-  // Restore the session from the refresh cookie on first load.
+  // Restore the session from the refresh cookie on first load (and on retry).
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     refreshSession()
@@ -35,15 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session) accept(session);
         else setStatus("anonymous");
       })
-      .catch(() => !cancelled && setStatus("anonymous"));
+      // The refresh call only throws when the server could not be reached; being signed
+      // out is a normal 401 handled above.
+      .catch(() => !cancelled && setStatus("unavailable"));
     return () => {
       cancelled = true;
     };
-  }, [accept]);
+  }, [accept, attempt]);
+
+  const retry = useCallback(() => {
+    setStatus("loading");
+    setAttempt((n) => n + 1);
+  }, []);
 
   const value = useMemo<AuthState>(
     () => ({
       status,
+      signedOut,
       user,
       login: async (email, password) => accept(await authApi.login(email, password)),
       register: async (email, password, name) => accept(await authApi.register(email, password, name)),
@@ -54,11 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(null);
           setUser(null);
           setStatus("anonymous");
+          setSignedOut(true);
         }
       },
+      retry,
       can: (permission) => Boolean(user?.permissions.includes(permission)),
     }),
-    [status, user, accept],
+    [status, signedOut, user, accept, retry],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

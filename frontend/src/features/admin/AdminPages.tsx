@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, CalendarCheck, ShieldAlert, Users as UsersIcon } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 
 import { Alert } from "../../design-system/Alert";
 import { Button } from "../../design-system/Button";
-import { Card } from "../../design-system/Card";
+import { Card, Panel } from "../../design-system/Card";
 import { TextField } from "../../design-system/TextField";
-import { EmptyState, PageHeader, QueryState, Select, Stat, StatusBadge, Toggle, errorText } from "../../design-system/ui";
+import { EmptyState, PageHeader, QueryState, Select, Skeleton, Stat, StatusBadge, Toggle, errorText } from "../../design-system/ui";
 import { api, post, put } from "../../lib/api";
 import { dateTime, rupees } from "../../lib/format";
 import { useAuth } from "../auth/AuthContext";
@@ -14,18 +15,18 @@ import { useAuth } from "../auth/AuthContext";
 const TABS = [
   ["", "Overview", "analytics.read"], ["users", "Users", "user.read_all"], ["bookings", "Bookings", "booking.read_all"],
   ["notifications", "Notifications", "analytics.read"], ["moderation", "Moderation", "moderation.manage"],
-  ["audit", "Audit log", "audit.read"], ["config", "Configuration", "admin.access"],
+  ["timetable", "Timetable", "admin.access"], ["audit", "Audit log", "audit.read"], ["config", "Configuration", "admin.access"],
 ] as const;
 
 export function AdminLayout() {
   const { can } = useAuth();
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Administration" intro="Sandbox platform monitoring. Every change here is recorded in the audit log." />
-      <nav aria-label="Admin sections" className="flex flex-wrap gap-1 rounded-full bg-surface p-1">
+      <PageHeader eyebrow="Admin" title="Administration" intro="Platform monitoring for the sandbox. Every change made here is recorded in the audit log." />
+      <nav aria-label="Admin sections" className="-mt-2 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.filter(([, , perm]) => can(perm)).map(([path, label]) => (
           <NavLink key={path} end to={`/app/admin${path ? `/${path}` : ""}`}
-                   className={({ isActive }) => `rounded-full px-4 py-2 text-sm font-semibold ${isActive ? "bg-ink text-surface" : "hover:bg-mist"}`}>
+                   className={({ isActive }) => `relative whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? "text-ink after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:bg-saffron" : "text-muted hover:text-ink"}`}>
             {label}
           </NavLink>
         ))}
@@ -49,45 +50,65 @@ export function AdminOverviewPage() {
   const providers = useQuery({ queryKey: ["admin-providers"], queryFn: () => api<{ capability: string; provider: string; mode: string; status: string }[]>("/api/v1/admin/providers") });
   return (
     <div className="flex flex-col gap-6">
-      <QueryState query={o}>
+      <QueryState query={o} skeleton={<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton h-28" />)}</div>}>
         {(d) => (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Users" value={d.users} />
-            <Stat label="Bookings" value={sum(d.bookings_by_status)} hint={`${d.bookings_by_status.CONFIRMED ?? 0} confirmed`} />
-            <Stat label="Reminder queue" value={d.outbox_by_status.pending ?? 0} hint={`${d.outbox_by_status.dead ?? 0} dead-lettered`} />
-            <Stat label="Moderation" value={d.held_posts + d.open_reports} hint={`${d.held_posts} held · ${d.open_reports} reports`} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat label="Users" icon={UsersIcon} value={d.users.toLocaleString("en-IN")} />
+            <Stat label="Bookings" icon={CalendarCheck} value={sum(d.bookings_by_status).toLocaleString("en-IN")} hint={`${d.bookings_by_status.CONFIRMED ?? 0} confirmed · ${d.bookings_by_status.FAILED ?? 0} failed`} />
+            <Stat label="Reminder queue" icon={Activity} value={d.outbox_by_status.pending ?? 0} tone={(d.outbox_by_status.dead ?? 0) > 0 ? "warning" : "default"} hint={`${d.outbox_by_status.dead ?? 0} dead-lettered`} />
+            <Stat label="Moderation" icon={ShieldAlert} value={d.held_posts + d.open_reports} tone={d.held_posts + d.open_reports > 0 ? "warning" : "default"} hint={`${d.held_posts} held · ${d.open_reports} reports`} />
           </div>
         )}
       </QueryState>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold">Searches, last 30 days</h2>
-          <QueryState query={a}>
-            {(d) => d.searches_per_day.length === 0 ? <p className="mt-2 text-sm">No searches yet.</p> : (
-              <>
-                <div className="mt-4 flex h-32 items-end gap-1" role="img" aria-label={`${d.searches} searches; ${d.confirmed_bookings} confirmed bookings; p95 search ${d.search_p95_ms} ms`}>
-                  {d.searches_per_day.map((x) => {
-                    const max = Math.max(...d.searches_per_day.map((y) => y.count));
-                    return <div key={x.day} title={`${x.day}: ${x.count}`} className="flex-1 rounded-t bg-steel" style={{ height: `${(x.count / max) * 100}%` }} />;
-                  })}
-                </div>
-                <p className="mt-3 text-sm">{d.searches} searches · {d.confirmed_bookings} sandbox bookings · p95 search {d.search_p95_ms} ms</p>
-                <ol className="mt-2 text-sm text-ink/80">{d.top_routes.map((r) => <li key={r.route}>{r.route}: {r.count}</li>)}</ol>
-              </>
-            )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <Panel title="Searches, last 30 days" description={a.data ? `${a.data.searches.toLocaleString("en-IN")} searches · ${a.data.confirmed_bookings} sandbox bookings · p95 search ${a.data.search_p95_ms} ms` : undefined}>
+          <QueryState query={a} skeleton={<div className="skeleton h-40" />}>
+            {(d) => d.searches_per_day.length === 0 ? <p className="text-sm text-muted">No searches yet.</p> : (() => {
+              const max = Math.max(...d.searches_per_day.map((y) => y.count));
+              const top = Math.max(...d.top_routes.map((r) => r.count), 1);
+              return (
+                <>
+                  <div className="relative">
+                    <div aria-hidden className="absolute inset-0 flex flex-col justify-between">{[0, 1, 2, 3].map((i) => <span key={i} className="border-t border-dashed border-line" />)}</div>
+                    <div className="relative flex h-40 items-end gap-[3px]" role="img" aria-label={`${d.searches} searches over 30 days; peak ${max} in a day`}>
+                      {d.searches_per_day.map((x, i) => (
+                        <div key={i} title={`${x.day}: ${x.count}`} className="flex-1 origin-bottom rounded-t-[2px] bg-primary/85 transition-colors hover:bg-saffron motion-safe:animate-[bar-up_600ms_var(--ease-ui)_both]"
+                             style={{ height: `${(x.count / max) * 100}%`, animationDelay: `${i * 18}ms` }} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-2 flex justify-between font-mono text-[11px] text-muted"><span>{d.searches_per_day[0]?.day}</span><span>peak {max}/day</span><span>{d.searches_per_day[d.searches_per_day.length - 1]?.day}</span></p>
+                  <h3 className="mt-6 text-sm font-semibold">Top routes</h3>
+                  <ol className="mt-3 flex flex-col gap-2.5">
+                    {d.top_routes.map((r) => (
+                      <li key={r.route} className="grid grid-cols-[6rem_1fr_3rem] items-center gap-3 text-sm">
+                        <span className="font-mono text-xs">{r.route}</span>
+                        <span className="h-2 rounded-full bg-mist"><span className="block h-full rounded-full bg-signal" style={{ width: `${(r.count / top) * 100}%` }} /></span>
+                        <span className="text-right font-mono text-xs text-muted">{r.count}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              );
+            })()}
           </QueryState>
-        </Card>
-        <Card>
-          <h2 className="font-semibold">Providers and data freshness</h2>
-          <QueryState query={providers}>
+        </Panel>
+        <Panel title="Providers and data freshness" bodyClassName="">
+          <QueryState query={providers} skeleton={<div className="p-5"><Skeleton rows={3} /></div>}>
             {(rows) => (
-              <table className="mt-3 w-full text-sm">
-                <thead><tr className="text-left text-ink/70"><th scope="col">Capability</th><th scope="col">Mode</th><th scope="col">Status</th></tr></thead>
-                <tbody>{rows.map((p) => <tr key={p.capability} className="border-t border-line"><th scope="row" className="py-1.5 text-left font-medium">{p.capability}</th><td>{p.mode}</td><td>{p.status}</td></tr>)}</tbody>
+              <table className="data-table">
+                <thead><tr><th scope="col">Capability</th><th scope="col">Mode</th><th scope="col">Status</th></tr></thead>
+                <tbody>{rows.map((p) => (
+                  <tr key={p.capability}>
+                    <th scope="row" className="font-medium">{p.capability.replaceAll("_", " ")}</th>
+                    <td><span className="rounded bg-mist px-1.5 py-0.5 font-mono text-xs">{p.mode}</span></td>
+                    <td><span className="inline-flex items-center gap-1.5 text-sm"><span className={`size-2 rounded-full ${p.status === "ok" ? "bg-success" : "bg-steel"}`} />{p.status}</span></td>
+                  </tr>
+                ))}</tbody>
               </table>
             )}
           </QueryState>
-        </Card>
+        </Panel>
       </div>
     </div>
   );
@@ -104,13 +125,13 @@ export function AdminUsersTab() {
   return (
     <QueryState query={q}>
       {(rows) => (
-        <Card className="overflow-x-auto">
-          {(status.isError || roles.isError) && <Alert tone="error" title={errorText(status.error ?? roles.error)} />}
-          <table className="w-full text-left text-sm">
-            <thead><tr className="text-ink/70"><th scope="col" className="py-2">Name</th><th scope="col">Email</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+        <Card className="overflow-x-auto p-0">
+          {(status.isError || roles.isError) && <div className="p-4"><Alert tone="error" title={errorText(status.error ?? roles.error)} /></div>}
+          <table className="data-table">
+            <thead><tr><th scope="col" className="py-2">Name</th><th scope="col">Email</th><th scope="col">Roles</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {rows.map((u) => (
-                <tr key={u.id} className="border-t border-line align-middle">
+                <tr key={u.id} >
                   <td className="py-2">{u.display_name}</td><td>{u.email}</td>
                   <td>
                     {can("role.grant") && u.id !== me?.id ? (
@@ -150,9 +171,9 @@ export function AdminBookingsTab() {
       </Select>
       <QueryState query={q}>
         {(rows) => rows.length === 0 ? <EmptyState title="No bookings" /> : (
-          <Card className="overflow-x-auto"><table className="w-full text-left text-sm">
-            <thead><tr className="text-ink/70"><th scope="col" className="py-2">Route</th><th scope="col">Date</th><th scope="col">User</th><th scope="col">Pax</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
-            <tbody>{rows.map((b) => <tr key={b.id} className="border-t border-line"><td className="py-2">{b.route} {b.pnr}</td><td>{b.journey_date}</td><td>{b.user}</td><td>{b.passengers}</td><td>{rupees(b.total_paise)}</td><td><StatusBadge status={b.status} /></td></tr>)}</tbody>
+          <Card className="overflow-x-auto p-0"><table className="data-table">
+            <thead><tr><th scope="col" className="py-2">Route</th><th scope="col">Date</th><th scope="col">User</th><th scope="col">Pax</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
+            <tbody>{rows.map((b) => <tr key={b.id}><td className="py-2">{b.route} {b.pnr}</td><td>{b.journey_date}</td><td>{b.user}</td><td>{b.passengers}</td><td>{rupees(b.total_paise)}</td><td><StatusBadge status={b.status} /></td></tr>)}</tbody>
           </table></Card>
         )}
       </QueryState>
@@ -177,9 +198,9 @@ export function AdminNotificationsTab() {
     <QueryState query={q}>
       {(d) => (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="overflow-x-auto"><h2 className="font-semibold">Outbox</h2>
-            <table className="mt-2 w-full text-left text-sm"><thead><tr className="text-ink/70"><th scope="col">Channel</th><th scope="col">Template</th><th scope="col">Status</th><th scope="col">Tries</th></tr></thead>
-              <tbody>{d.outbox.map((o) => <tr key={o.id} className="border-t border-line" title={o.last_error ?? ""}><td className="py-1">{o.channel}</td><td>{o.template}</td><td>{o.status}</td><td>{o.attempts}</td></tr>)}</tbody></table>
+          <Card className="overflow-x-auto p-0"><h2 className="px-5 pt-4 font-semibold">Outbox</h2>
+            <table className="data-table mt-2"><thead><tr><th scope="col">Channel</th><th scope="col">Template</th><th scope="col">Status</th><th scope="col">Tries</th></tr></thead>
+              <tbody>{d.outbox.map((o) => <tr key={o.id} title={o.last_error ?? ""}><td className="py-1">{o.channel}</td><td>{o.template}</td><td>{o.status}</td><td>{o.attempts}</td></tr>)}</tbody></table>
           </Card>
           <Card><h2 className="font-semibold">Recent deliveries</h2>
             <ul className="mt-2 text-sm">{d.deliveries.map((x, i) => <li key={i}>{dateTime(x.at)} · {x.provider} · {x.status}{x.error ? ` · ${x.error}` : ""}</li>)}</ul>
@@ -230,9 +251,9 @@ export function AdminAuditTab() {
   return (
     <QueryState query={q}>
       {(rows) => rows.length === 0 ? <EmptyState title="No audit entries yet" /> : (
-        <Card className="overflow-x-auto"><table className="w-full text-left text-sm">
-          <thead><tr className="text-ink/70"><th scope="col" className="py-2">When</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Change</th></tr></thead>
-          <tbody>{rows.map((e) => <tr key={e.id} className="border-t border-line align-top"><td className="py-2 whitespace-nowrap">{dateTime(e.created_at)}</td><td>{e.action}</td><td>{e.entity_type} {e.entity_id?.slice(0, 8)}</td>
+        <Card className="overflow-x-auto p-0"><table className="data-table">
+          <thead><tr><th scope="col" className="py-2">When</th><th scope="col">Action</th><th scope="col">Entity</th><th scope="col">Change</th></tr></thead>
+          <tbody>{rows.map((e) => <tr key={e.id} ><td className="py-2 whitespace-nowrap">{dateTime(e.created_at)}</td><td>{e.action}</td><td>{e.entity_type} {e.entity_id?.slice(0, 8)}</td>
             <td><code className="text-xs">{JSON.stringify(e.before)} → {JSON.stringify(e.after)}</code></td></tr>)}</tbody>
         </table></Card>
       )}
@@ -254,7 +275,7 @@ export function AdminConfigTab() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <h2 className="font-semibold">Settings</h2>
-        {!superAdmin && <p className="mt-1 text-sm text-ink/70">Read-only: changes need a Super Administrator.</p>}
+        {!superAdmin && <p className="mt-1 text-sm text-muted">Read-only: changes need a Super Administrator.</p>}
         <QueryState query={settings}>
           {(s) => (
             <div className="divide-y divide-line">

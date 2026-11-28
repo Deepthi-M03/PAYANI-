@@ -6,6 +6,7 @@ import {
   AdminAuditTab, AdminBookingsTab, AdminConfigTab, AdminLayout, AdminModerationTab, AdminNotificationsTab,
   AdminOverviewPage, AdminUsersTab,
 } from "../features/admin/AdminPages";
+import { AdminTimetableTab } from "../features/admin/TimetableAdmin";
 import { BookJourneyPage } from "../features/book/BookJourneyPage";
 import { SearchPage } from "../features/book/SearchPage";
 import { BookingDetailPage } from "../features/bookings/BookingDetailPage";
@@ -22,6 +23,7 @@ import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { ApiError } from "../lib/api";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { FullPageLoader } from "../design-system/FullPageLoader";
+import { WakeNotice } from "../design-system/WakeNotice";
 import { AppLayout, MarketingLayout } from "./layouts";
 
 // The public landing page is its own chunk.
@@ -72,6 +74,7 @@ export const routes = [
           { path: "bookings", element: <RequireAuth permission="booking.read_all"><AdminBookingsTab /></RequireAuth> },
           { path: "notifications", element: <RequireAuth permission="analytics.read"><AdminNotificationsTab /></RequireAuth> },
           { path: "moderation", element: <RequireAuth permission="moderation.manage"><AdminModerationTab /></RequireAuth> },
+          { path: "timetable", element: <AdminTimetableTab /> },
           { path: "audit", element: <RequireAuth permission="audit.read"><AdminAuditTab /></RequireAuth> },
           { path: "config", element: <AdminConfigTab /> },
         ],
@@ -98,6 +101,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <WakeNotice />
         <RouterProvider router={router} />
       </AuthProvider>
     </QueryClientProvider>

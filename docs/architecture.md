@@ -51,10 +51,4 @@ src/
 
 ## Motion ownership
 
-| Library | Owns | Where |
-| --- | --- | --- |
-| CSS keyframes | One-time route-line draw on the landing page | `pages/landing`, off under reduced motion |
-| Motion (`motion/react`) | Page entrance transition | app layout only |
-| CSS | Hover, focus, small icon movement | everywhere |
-
-Native scrolling everywhere; nothing hijacks the scroll. With reduced motion the route line is simply drawn.
+See [brand.md](brand.md#motion-system): Motion for app page transitions, CSS for entrances and micro-interactions, native IntersectionObserver/requestAnimationFrame for scroll reveals and parallax, MapLibre for map camera moves. Nothing hijacks scrolling; all of it is off under `prefers-reduced-motion`.

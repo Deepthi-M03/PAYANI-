@@ -11,6 +11,8 @@ Two independent algorithms are kept on purpose:
 
 from __future__ import annotations
 
+from bisect import bisect_left
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
@@ -19,6 +21,15 @@ import networkx as nx
 from payani.domain.catalog_synth import SNAPSHOT, SOURCE, STATION_BY_CODE, Train
 
 DAY = 1440
+
+SIMULATED_DATA = {"confidence": "simulated", "source": SOURCE, "as_of": SNAPSHOT}
+
+
+def station_name(code: str, names: Mapping[str, str] | None = None) -> str:
+    if names is not None:
+        return names.get(code, code)
+    s = STATION_BY_CODE.get(code)
+    return s.name if s else code
 
 
 @dataclass(frozen=True)
@@ -37,6 +48,23 @@ class Instance:
 
     def arr(self, i: int) -> int:
         return self.day_offset * DAY + self.train.stops[i].arr  # type: ignore[operator]
+
+    def codes_after(self, i: int) -> frozenset[str]:
+        return _codes_after(self.train, i)
+
+
+_after_cache: dict[tuple[int, int], frozenset[str]] = {}
+
+
+def _codes_after(train: Train, i: int) -> frozenset[str]:
+    key = (id(train), i)
+    got = _after_cache.get(key)
+    if got is None:
+        if len(_after_cache) > 500_000:
+            _after_cache.clear()
+        got = frozenset(s.station for s in train.stops[i + 1:])
+        _after_cache[key] = got
+    return got
 
 
 @dataclass(frozen=True)
@@ -62,9 +90,10 @@ class Leg:
         return self.inst.train.stops[self.alight].station
 
     @property
-    def distance_km(self) -> int:
+    def distance_km(self) -> int | None:
         stops = self.inst.train.stops
-        return stops[self.alight].distance_km - stops[self.board].distance_km
+        a, b = stops[self.alight].distance_km, stops[self.board].distance_km
+        return None if a is None or b is None else a - b
 
 
 @dataclass
@@ -142,12 +171,17 @@ def enumerate_journeys(trains: list[Train], origin: str, dest: str, journey_date
         return []
     instances = instances_for(trains, journey_date)
     index = _boarding_index(instances)
+    times = {code: [e[0] for e in lst] for code, lst in index.items()}
     found: dict[tuple, Journey] = {}
 
     def extend(station: str, earliest: int, latest: int, legs: list[Leg], visited: frozenset[str]):
-        for dep, inst, i in index.get(station, []):
-            if dep < earliest or dep >= latest:
-                continue
+        lst = index.get(station, [])
+        ts = times.get(station, [])
+        last_level = len(legs) >= opts.max_transfers
+        for k in range(bisect_left(ts, earliest), bisect_left(ts, latest)):
+            dep, inst, i = lst[k]
+            if last_level and dest not in inst.codes_after(i):
+                continue  # no more changes allowed and this train never reaches the destination
             if legs and any(leg.inst.key == inst.key for leg in legs):
                 continue  # re-boarding the same train is not a transfer
             for j in range(i + 1, len(inst.train.stops)):
@@ -174,7 +208,39 @@ def enumerate_journeys(trains: list[Train], origin: str, dest: str, journey_date
 
 def pareto(journeys: list[Journey]) -> list[Journey]:
     """Keep a journey unless another leaves no earlier, arrives no later and changes
-    no more often, and is strictly better on at least one of those."""
+    no more often, and is strictly better on at least one of those.
+
+    Runs in O(n log n) on distinct (departure, arrival, changes) keys, so a national
+    timetable with thousands of candidate journeys stays fast. Identical keys never
+    dominate each other, matching the pairwise definition."""
+    keys: dict[tuple[int, int, int], list[Journey]] = {}
+    for j in journeys:
+        keys.setdefault((j.dep, j.arr, j.transfers), []).append(j)
+    ordered = sorted(keys, key=lambda k: -k[0])
+    dominated: set[tuple[int, int, int]] = set()
+    best: dict[int, int] = {}  # transfers -> earliest arrival among strictly later departures
+    i = 0
+    while i < len(ordered):
+        dep = ordered[i][0]
+        group = []
+        while i < len(ordered) and ordered[i][0] == dep:
+            group.append(ordered[i])
+            i += 1
+        for k in group:
+            _, arr, tr = k
+            if any(t <= tr and a <= arr for t, a in best.items()):
+                dominated.add(k)
+                continue
+            if any(o != k and o[1] <= arr and o[2] <= tr for o in group):
+                dominated.add(k)
+        for _, arr, tr in group:
+            if arr < best.get(tr, arr + 1):
+                best[tr] = arr
+    return [j for j in journeys if (j.dep, j.arr, j.transfers) not in dominated]
+
+
+def pareto_reference(journeys: list[Journey]) -> list[Journey]:
+    """The direct pairwise definition, kept as a test oracle for `pareto`."""
     keep = []
     for a in journeys:
         dominated = False
@@ -206,7 +272,7 @@ def fmt_duration(minutes: int) -> str:
     return f"{h}h {m:02d}m" if h else f"{m}m"
 
 
-def explain(journeys: list[Journey]) -> None:
+def explain(journeys: list[Journey], names: Mapping[str, str] | None = None) -> None:
     """Attach reasons derived from real differences between the options shown."""
     if not journeys:
         return
@@ -229,7 +295,7 @@ def explain(journeys: list[Journey]) -> None:
         if j.arr == earliest:
             r.append({"code": "earliest_arrival", "text": "Earliest arrival"})
         for station, wait in j.waits:
-            name = STATION_BY_CODE[station].name
+            name = station_name(station, names)
             if wait < 45:
                 r.append({"code": "tight_connection", "station": station, "minutes": wait,
                           "text": f"Tight connection: {wait} min at {name}"})
@@ -242,14 +308,39 @@ def explain(journeys: list[Journey]) -> None:
         j.reasons = r
 
 
+def candidate_trains(trains: list[Train], origin: str, dest: str, max_transfers: int) -> list[Train]:
+    """Trains that can appear in a journey with at most one change. Used to keep searches
+    over a national timetable (thousands of trains) fast. With two or more changes every
+    train may matter, so the full list is returned."""
+    if max_transfers >= 2:
+        return trains
+    from_origin, to_dest = [], []
+    for t in trains:
+        codes = [s.station for s in t.stops]
+        if origin in codes[:-1]:
+            from_origin.append((t, codes[codes.index(origin) + 1:]))
+        if dest in codes[1:]:
+            last = len(codes) - 1 - codes[::-1].index(dest)
+            to_dest.append((t, codes[:last]))
+    direct = {id(t) for t, after in from_origin if dest in after}
+    keep = set(direct)
+    if max_transfers >= 1:
+        after_origin = {c for _, after in from_origin for c in after}
+        before_dest = {c for _, before in to_dest for c in before}
+        hubs = (after_origin & before_dest) - {origin, dest}
+        keep |= {id(t) for t, after in from_origin if hubs.intersection(after)}
+        keep |= {id(t) for t, before in to_dest if hubs.intersection(before)}
+    return [t for t in trains if id(t) in keep]
+
+
 def search(trains: list[Train], origin: str, dest: str, journey_date: date,
-           opts: SearchOptions = SearchOptions()) -> list[Journey]:
+           opts: SearchOptions = SearchOptions(), names: Mapping[str, str] | None = None) -> list[Journey]:
     options = pareto(enumerate_journeys(trains, origin, dest, journey_date, opts))
     for j in options:
         j.score = _score(j, opts.preference)
     options.sort(key=lambda j: (j.score, j.dep))
     options = options[: opts.limit]
-    explain(options)
+    explain(options, names)
     return options
 
 
@@ -257,8 +348,20 @@ def to_local(journey_date: date, minutes: int) -> datetime:
     return datetime.combine(journey_date, time()) + timedelta(minutes=minutes)
 
 
-def journey_to_dict(j: Journey, journey_date: date) -> dict:
-    """Serialisable view used by the API. Every journey carries its data confidence."""
+def journey_warnings(j: Journey) -> list[dict]:
+    """Caveats that come from the source data, shown next to the journey."""
+    out = []
+    if any(not leg.inst.train.days_known for leg in j.legs):
+        out.append({"code": "running_days_unknown",
+                    "text": "Days of operation are not in the source timetable; this train may not run on your date."})
+    if any(leg.distance_km is None for leg in j.legs):
+        out.append({"code": "distance_unknown", "text": "Distance for this section is not in the source timetable."})
+    return out
+
+
+def journey_to_dict(j: Journey, journey_date: date, names: Mapping[str, str] | None = None,
+                    data: dict | None = None) -> dict:
+    """Serialisable view used by the API. Every journey carries its data label and provenance."""
 
     def iso(m: int) -> str:
         return to_local(journey_date, m).isoformat(timespec="minutes") + "+05:30"
@@ -270,7 +373,8 @@ def journey_to_dict(j: Journey, journey_date: date) -> dict:
         "duration_min": j.duration,
         "transfers": j.transfers,
         "total_wait_min": j.total_wait,
-        "distance_km": sum(leg.distance_km for leg in j.legs),
+        "distance_km": (None if any(leg.distance_km is None for leg in j.legs)
+                        else sum(leg.distance_km or 0 for leg in j.legs)),
         "legs": [
             {
                 "train_number": leg.inst.train.number,
@@ -278,19 +382,21 @@ def journey_to_dict(j: Journey, journey_date: date) -> dict:
                 "train_kind": leg.inst.train.kind,
                 "classes": list(leg.inst.train.classes),
                 "from": leg.from_code,
-                "from_name": STATION_BY_CODE[leg.from_code].name,
+                "from_name": station_name(leg.from_code, names),
                 "to": leg.to_code,
-                "to_name": STATION_BY_CODE[leg.to_code].name,
+                "to_name": station_name(leg.to_code, names),
                 "departure": iso(leg.dep),
                 "arrival": iso(leg.arr),
                 "duration_min": leg.arr - leg.dep,
                 "distance_km": leg.distance_km,
                 "train_origin_date": (journey_date + timedelta(days=leg.inst.day_offset)).isoformat(),
+                "running_days_known": leg.inst.train.days_known,
             }
             for leg in j.legs
         ],
         "reasons": j.reasons,
-        "data": {"confidence": "simulated", "source": SOURCE, "as_of": SNAPSHOT},
+        "warnings": journey_warnings(j),
+        "data": dict(data or SIMULATED_DATA),
     }
 
 
@@ -360,6 +466,6 @@ def _bisect_left(a: list[int], x: int) -> int:
 
 
 __all__ = [
-    "Journey", "SearchOptions", "search", "journey_to_dict", "earliest_arrival_dijkstra",
+    "Journey", "SearchOptions", "search", "journey_to_dict", "candidate_trains", "station_name", "earliest_arrival_dijkstra",
     "enumerate_journeys", "pareto", "explain", "fmt_duration",
 ]

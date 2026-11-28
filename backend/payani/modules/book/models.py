@@ -33,23 +33,31 @@ class Station(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid7)
     code: Mapped[str] = mapped_column(String(8), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    state: Mapped[str] = mapped_column(Text, nullable=False)
-    lat: Mapped[float] = mapped_column(Float, nullable=False)
-    lon: Mapped[float] = mapped_column(Float, nullable=False)
+    state: Mapped[str | None] = mapped_column(Text)
+    lat: Mapped[float | None] = mapped_column(Float)  # imported stations may have no position
+    lon: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(48), nullable=False)
+    zone: Mapped[str | None] = mapped_column(String(16))
 
 
 class TrainRow(Base):
     __tablename__ = "trains"
-    __table_args__ = (CheckConstraint("running_days BETWEEN 1 AND 127", name="running_days"),)
+    __table_args__ = (
+        CheckConstraint("running_days BETWEEN 1 AND 127", name="running_days"),
+        UniqueConstraint("source", "number", name="uq_trains_source_number"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid7)
-    number: Mapped[str] = mapped_column(String(8), nullable=False, unique=True)
+    number: Mapped[str] = mapped_column(String(8), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     kind: Mapped[str] = mapped_column(String(24), nullable=False)
     running_days: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     classes: Mapped[str] = mapped_column(String(64), nullable=False)
     source: Mapped[str] = mapped_column(String(48), nullable=False)
     snapshot: Mapped[date] = mapped_column(Date, nullable=False)
+    # Set for trains from an imported dataset; NULL for the synthetic catalogue.
+    dataset_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("timetable_imports.id"), index=True)
+    running_days_known: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    distance_basis: Mapped[str] = mapped_column(String(16), nullable=False, server_default="source")
     stops: Mapped[list["TrainStop"]] = relationship(order_by="TrainStop.seq", lazy="selectin")
 
 
@@ -65,7 +73,7 @@ class TrainStop(Base):
     station_code: Mapped[str] = mapped_column(ForeignKey("stations.code"), nullable=False, index=True)
     arr_min: Mapped[int | None] = mapped_column(Integer)
     dep_min: Mapped[int | None] = mapped_column(Integer)
-    distance_km: Mapped[int] = mapped_column(Integer, nullable=False)
+    distance_km: Mapped[int | None] = mapped_column(Integer)  # NULL when the source has no distance
 
 
 class ProviderSyncRun(Base):

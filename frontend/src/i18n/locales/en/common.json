@@ -117,6 +117,10 @@
   },
   "common": {
     "loading": "Loading…",
+    "waking": "Starting the server…",
+    "wakingBody": "This site runs on free hosting, which pauses when quiet. It can take up to a minute to wake up. Your page will continue by itself.",
+    "unavailableTitle": "PAYANI's server isn't responding yet.",
+    "unavailableBody": "You haven't been signed out. The server may still be starting; wait a moment and try again.",
     "retry": "Try again",
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you are looking for does not exist or has moved.",

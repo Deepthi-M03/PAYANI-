@@ -20,8 +20,11 @@ export interface Leg {
   departure: string;
   arrival: string;
   duration_min: number;
-  distance_km: number;
+  /** null when the source timetable does not publish the distance for this section */
+  distance_km: number | null;
   train_origin_date: string;
+  /** false when the source timetable has no days of operation */
+  running_days_known?: boolean;
 }
 
 export interface Journey {
@@ -31,25 +34,58 @@ export interface Journey {
   duration_min: number;
   transfers: number;
   total_wait_min: number;
-  distance_km: number;
+  distance_km: number | null;
   legs: Leg[];
   reasons: Reason[];
-  data: { confidence: Confidence; source: string; as_of: string };
+  warnings?: { code: string; text: string }[];
+  data: JourneyData;
 }
 
+/** Where a journey's times come from. `confidence` is the data label shown on every result. */
+export interface JourneyData {
+  confidence: Confidence;
+  source: string;
+  as_of: string;
+  source_name?: string;
+  source_url?: string;
+  imported_at?: string | null;
+  freshness?: "recent" | "aging" | "outdated";
+  outdated?: boolean;
+  warning?: string | null;
+}
+
+/** The timetable behind search results: label, provenance and age. */
 export interface Freshness {
   status: string;
-  as_of?: string;
-  age_days?: number;
-  trains: number;
-  licence?: string;
+  label?: "simulated" | "scheduled";
   confidence?: Confidence;
+  provider?: string;
+  dataset?: string;
+  source_name?: string;
+  source_url?: string | null;
+  official?: boolean;
+  licence?: string;
+  licence_url?: string | null;
+  as_of?: string;
+  published_on?: string;
+  published_note?: string | null;
+  imported_at?: string | null;
+  age_days?: number;
+  outdated?: boolean;
+  warning?: string | null;
+  trains: number;
+  rows?: number | null;
+  running_days_known?: boolean;
+  max_transfers?: number;
 }
 
 export interface Station {
   code: string;
   name: string;
-  state: string;
+  state: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  google_maps_url?: string;
 }
 
 export interface BookingEvent {

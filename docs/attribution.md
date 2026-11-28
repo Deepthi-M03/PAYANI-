@@ -9,27 +9,42 @@
 | Booking caps (GN 6, TQ 4) | Policy values | GN: IIT Kanpur SATHEE guide (secondary); TQ: ixigo and others | Cited per row in `booking_policies` | Checked 2026-11-26 | Shown with source and date |
 | Demand data | Fully synthetic, `payani/domain/forecasting.py` (seed 7) | PAYANI | Original work | — | Simulated |
 
-No open timetable dataset is imported yet. Before one is added, its licence and usage terms are read and recorded here, and anything unclear is not imported.
+| Imported timetable (optional) | Real historical timetable, imported by a Super Administrator | DataMeet "Indian Railways Data" (https://github.com/datameet/railways) or data.gov.in "Indian Railways Train Time Table" | DataMeet: CC0 1.0. data.gov.in: licence entered at import from the resource page | DataMeet data committed 2016-08-08; data.gov.in: date entered at import | Scheduled, with an **outdated** warning |
 
-## Imagery
+No dataset ships with the project: it is downloaded and imported by the operator. Each import records its source, licence, publication date, download date and file fingerprint (Administration → Timetable). See [timetable-data.md](timetable-data.md) for how each source was checked.
 
-No third-party photographs are included. The landing-page train scene, map and app icon are original SVG drawn for PAYANI. To add stock photos later (ADR 008), list each one here with photographer, source page, licence and date checked.
+Google Maps links (`https://www.google.com/maps/search/?api=1…`, `/dir/?api=1…`) are plain Maps URLs: no key, no API call, no cost.
+
+## Imagery and identity
+
+No third-party photographs are included yet. Everything visual is original work for PAYANI:
 
 | Asset | Source | Licence |
 | --- | --- | --- |
-| `frontend/public/icon.svg` | Original | Project |
-| Landing train illustration, route map, curved panels | Original SVG in `pages/landing/LandingPage.tsx` | Project |
+| Logo, symbol, favicon, app icons (`frontend/public/logo-*.svg`, `favicon.svg`, `icon-*.png`, `apple-touch-icon.png`; `src/design-system/Logo.tsx`) | Original | Project |
+| Landscape scenes on the landing and sign-in pages (`src/pages/landing/Scenes.tsx`) | Original, drawn in code | Project |
+
+To use real travel photography, pass a `photo` to `<Scene>` and list each image here with photographer, source page, licence and the date the licence was checked (for example a CC BY or CC BY-SA photograph from Wikimedia Commons, credited on the page).
+
+## Maps
+
+| Service / data | Use | Terms |
+| --- | --- | --- |
+| MapLibre GL JS (`maplibre-gl`) | Map rendering | BSD-3-Clause |
+| OpenFreeMap (`tiles.openfreemap.org`, style "positron") | Base map tiles, all map pages | Free public instance, no key; provided as-is and may change. Data © OpenStreetMap contributors (ODbL). Override with `VITE_MAP_STYLE_URL`. |
+| OpenRailwayMap raster tiles | Real railway lines overlay, **public landing page only** | CC-BY-SA 2.0 style, OSM data ODbL. Its terms require public, free, registration-free use and forbid heavy traffic, so signed-in pages do not load it; self-host before high traffic. |
+| Station positions | Markers | Hand-compiled, approximate (two decimals), labelled as such |
+| Journey lines and network links | Drawn between station positions | Schematic only and labelled "not track geometry" |
 
 ## Fonts and icons
 
 | Asset | Licence |
 | --- | --- |
 | IBM Plex Sans and IBM Plex Mono (via `@fontsource/ibm-plex-sans` and `@fontsource/ibm-plex-mono`, self-hosted) | SIL Open Font License 1.1 |
-| Trainset side elevation (`frontend/public/img/trainset-elevation.svg`) | Drawn for PAYANI; not a photograph of any operator's train |
 | Lucide icons (`lucide-react`) | ISC |
 
 Fonts are bundled, so visitors' browsers make no requests to Google.
 
 ## Libraries
 
-All runtime libraries are free and open source (MIT, BSD, Apache-2.0 or similar), including React, React Router, TanStack Query, React Hook Form, Zod, Motion, FastAPI, SQLAlchemy, Alembic, Pydantic, argon2-cffi, PyJWT, NumPy, pandas, scikit-learn and NetworkX. GSAP is distributed under GreenSock's standard licence, which has been free for all uses including its plugins since 2025; re-read the licence at gsap.com before any commercial use.
+All runtime libraries are free and open source (MIT, BSD, Apache-2.0 or similar), including React, React Router, TanStack Query, React Hook Form, Zod, Motion, MapLibre GL JS, FastAPI, SQLAlchemy, Alembic, Pydantic, argon2-cffi, PyJWT, NumPy, pandas, scikit-learn and NetworkX. GSAP is not used: scroll reveals and parallax use native browser APIs (IntersectionObserver and requestAnimationFrame).

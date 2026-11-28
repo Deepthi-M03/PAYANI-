@@ -41,7 +41,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-      - run: uv sync --group dev
+      - run: uv sync --locked --group dev
+      - name: Lockfile and requirements.txt are current
+        run: |
+          uv lock --check
+          { printf '# Pinned production dependencies, generated from uv.lock. Do not edit by hand.\n# Regenerate: uv export --no-dev --no-hashes --no-emit-project -o requirements.txt\n'; uv export --no-dev --no-hashes --no-emit-project 2>/dev/null | grep -v '^#'; } | diff - requirements.txt
       - name: Lint
         run: uv run ruff check .
       - name: Migrate
@@ -68,14 +72,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Uses `npm ci` once package-lock.json is committed; until then the lock file this
-      # run resolves is uploaded as an artifact so it can be downloaded and committed.
       - name: Install dependencies
-        run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: package-lock
-          path: frontend/package-lock.json
+        run: npm ci --no-audit --no-fund
       - name: Type check
         run: npm run typecheck
       - name: Lint
@@ -108,8 +106,12 @@ jobs:
           node-version: 22
       - name: Start API
         working-directory: backend
+        env:
+          # Both browser projects register new users from one IP within a minute, which the
+          # production limit (5/min) would reject. Only the CI test server is relaxed.
+          RATE_LIMIT_REGISTER_PER_MINUTE: "100"
         run: |
-          uv sync
+          uv sync --locked
           uv run alembic upgrade head
           uv run python -m payani.seeds.load --profile catalogue
           nohup uv run uvicorn payani.main:app --port 8000 > ../api.log 2>&1 &
@@ -117,7 +119,7 @@ jobs:
       - name: Playwright
         working-directory: frontend
         run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+          npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
           npx playwright test
       - if: failure()

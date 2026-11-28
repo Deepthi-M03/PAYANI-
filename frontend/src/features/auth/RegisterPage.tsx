@@ -66,7 +66,7 @@ export function RegisterPage() {
       </form>
       <p className="mt-6 text-center text-sm">
         {t("auth.haveAccount")}{" "}
-        <Link to="/login" className="font-semibold text-primary underline underline-offset-4">
+        <Link to="/login" className="font-semibold text-signal underline underline-offset-4">
           {t("nav.signIn")}
         </Link>
       </p>

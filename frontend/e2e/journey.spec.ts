@@ -2,14 +2,25 @@ import { expect, test } from "@playwright/test";
 
 const password = "a-long-test-password-2026";
 
-test("the landing search hands the query to the search page after sign-in", async ({ page }) => {
+test("the landing page searches without an account and asks to sign in to book", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("From").fill("Chennai");
+  await page.getByLabel("From", { exact: true }).fill("Chennai");
   await page.getByRole("option", { name: /Chennai Central/ }).click();
-  await page.getByLabel("To").fill("Bengaluru");
+  await page.getByLabel("To", { exact: true }).fill("Bengaluru");
   await page.getByRole("option", { name: /KSR Bengaluru/ }).click();
   await page.getByRole("button", { name: "Search trains" }).click();
+  await expect(page.getByRole("heading", { name: /options? found/ })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in to book" }).first().click();
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("stations can be picked on the map", async ({ page }) => {
+  await page.goto("/");
+  const station = page.getByRole("button", { name: "New Delhi (NDLS)" });
+  await station.click();
+  await expect(page.getByRole("dialog", { name: "New Delhi station" })).toBeVisible();
+  await page.getByRole("button", { name: "Set as From" }).click();
+  await expect(page.getByLabel("From")).toHaveValue(/New Delhi/);
 });
 
 test("search, book, pay in sandbox, set reminders, cancel and see the refund", async ({ page }) => {
@@ -21,12 +32,12 @@ test("search, book, pay in sandbox, set reminders, cancel and see the refund", a
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/app$/);
 
-  await page.getByRole("link", { name: "Search", exact: true }).first().click();
-  await page.getByLabel("From").fill("Chennai");
+  await page.getByRole("link", { name: "Search trains", exact: true }).first().click();
+  await page.getByLabel("From", { exact: true }).fill("Chennai");
   await page.getByRole("option", { name: /Chennai Central/ }).click();
-  await page.getByLabel("To").fill("Bengaluru");
+  await page.getByLabel("To", { exact: true }).fill("Bengaluru");
   await page.getByRole("option", { name: /KSR Bengaluru/ }).click();
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText(/option/).first()).toBeVisible();
   await expect(page.getByText("Simulated").first()).toBeVisible();
 
@@ -34,7 +45,7 @@ test("search, book, pay in sandbox, set reminders, cancel and see the refund", a
   await expect(page.getByRole("heading", { name: "Book this journey" })).toBeVisible();
   await page.getByRole("button", { name: "Continue to review" }).click();
 
-  await expect(page.getByText("Awaiting payment")).toBeVisible();
+  await expect(page.getByText("Awaiting payment").first()).toBeVisible();
   await page.getByRole("button", { name: /Pay .* \(sandbox\)/ }).click();
   await expect(page.getByText("Confirmed (sandbox)").first()).toBeVisible();
   await expect(page.getByText(/SBX-\d+/).first()).toBeVisible();
@@ -49,10 +60,11 @@ test("landing page is fully readable with reduced motion", async ({ browser }) =
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const page = await context.newPage();
   await page.goto("/");
-  for (const name of ["What PAYANI does", "How group booking works", "Every time says where it came from", "Privacy and safety"]) {
+  for (const name of [/looks different from a train window/, /No arithmetic/, /Every time says where it came from/, /trusted with a family/]) {
     await expect(page.getByRole("heading", { name })).toBeVisible();
   }
-  await expect(page.getByText("Schematic line, not track geometry.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Create a free account|Open dashboard/ })).toBeVisible();
   await context.close();
 });
+
+

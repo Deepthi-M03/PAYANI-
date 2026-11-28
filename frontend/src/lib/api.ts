@@ -4,6 +4,8 @@
  * refreshes once and retries.
  */
 
+import { ensureApiAwake, isUnavailableStatus, markApiAlive, markApiMaybeAsleep } from "./wake";
+
 export interface Problem {
   type: string;
   code: string;
@@ -61,19 +63,44 @@ async function parse<T>(res: Response): Promise<T> {
     throw new ApiError(
       body && typeof body === "object" && "title" in body
         ? (body as Problem)
-        : { type: "urn:payani:problem:network", code: "network", title: "Unexpected response", status: res.status },
+        : isUnavailableStatus(res.status)
+          ? unavailableProblem(res.status)
+          : { type: "urn:payani:problem:network", code: "network", title: "Unexpected response", status: res.status },
     );
   }
   return body as T;
+}
+
+function unavailableProblem(status: number): Problem {
+  return {
+    type: "urn:payani:problem:unavailable",
+    code: "unavailable",
+    title: "PAYANI's server is starting up or can't be reached. Please try again in a moment.",
+    status,
+  };
 }
 
 async function rawRequest(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  // Free hosting sleeps when idle: wait for the real API before sending anything, so a
+  // request (a payment, say) is never fired into a server that is still starting.
+  await ensureApiAwake();
+  const send = () => fetch(path, { ...init, headers, credentials: "same-origin" });
   try {
-    return await fetch(path, { ...init, headers, credentials: "same-origin" });
+    let res = await send();
+    if (isUnavailableStatus(res.status)) {
+      markApiMaybeAsleep();
+      // Reads are safe to repeat once the API is back. Writes are not retried here.
+      const method = (init.method ?? "GET").toUpperCase();
+      if ((method === "GET" || method === "HEAD") && (await ensureApiAwake())) res = await send();
+    } else {
+      markApiAlive();
+    }
+    return res;
   } catch {
+    markApiMaybeAsleep();
     throw new ApiError({
       type: "urn:payani:problem:network",
       code: "network",
@@ -91,6 +118,9 @@ export function refreshSession(): Promise<TokenResponse | null> {
         method: "POST",
         headers: { "X-CSRF-Token": csrfToken() },
       });
+      // The server being unreachable is not the same as having no session: keep the
+      // token and let the caller decide, rather than silently signing the person out.
+      if (isUnavailableStatus(res.status)) throw new ApiError(unavailableProblem(res.status));
       if (!res.ok) {
         setAccessToken(null);
         return null;

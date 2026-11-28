@@ -29,18 +29,29 @@ Typography: IBM Plex Sans (interface and headings, semibold) and IBM Plex Mono (
 numbers, references), self-hosted from `@fontsource`. Small radii (4–6 px), borders over shadows,
 no gradients.
 
-### Motion
+### Logo
 
-GSAP, ScrollTrigger and Lenis are removed. Scroll is never hijacked. Motion (the library) keeps
-the 320 ms page entrance in the app; the landing page draws its route line once with CSS. Both
-are disabled under `prefers-reduced-motion`.
+An original symbol (a journey line from an origin ring to a saffron destination node, forming a
+"P") and wordmark. Construction and animation: [docs/brand.md](../brand.md).
 
-### Maps (planned, not yet built)
+### Motion (revised 27 Nov 2026)
 
-MapLibre GL JS with OpenFreeMap vector tiles (no key, no usage fees, provided as-is), an
-OpenRailwayMap overlay for real track context, and route lines traced from OpenStreetMap railway
-data (ODbL) where available. Any route not traced is drawn dashed and labelled "Schematic, not
-track geometry". Google Maps is not used because it needs a billing account.
+Motion is a larger part of the experience: logo intro, staggered hero entrance, scroll reveals,
+layered parallax in landscape scenes, map camera moves, route draw-on and a journey indicator,
+ticket reveal, chart and card transitions. GSAP was considered and not adopted: the same effects
+are achieved with native IntersectionObserver/requestAnimationFrame and CSS, with no extra
+download, and Motion keeps the app's page transitions. Lenis stays removed (no scroll hijacking).
+Everything is disabled under `prefers-reduced-motion`. Details: [docs/brand.md](../brand.md).
+
+### Maps (built 27 Nov 2026)
+
+MapLibre GL JS with OpenFreeMap vector tiles (no key, no usage fees, provided as-is). Public
+pages add an OpenRailwayMap overlay showing real track geometry; signed-in pages do not, because
+its terms allow only public, registration-free use. Journey lines are straight dashed segments
+between stops, labelled "Schematic route, not track geometry"; tracing real OSM rail geometry per
+route is future work. Station positions are approximate and say so. A simplified map with the same
+controls is shown when WebGL or the tile service is unavailable. Google Maps is not used because it
+needs a billing account. Component: `src/features/map/RailMap.tsx`; data: `GET /api/v1/stations/map`.
 
 ### Hosting
 
@@ -53,4 +64,4 @@ month on Render). Not purchased; awaiting the owner's approval.
 
 - Every component uses the tokens above through Tailwind theme classes; no hex values in components.
 - The design-system unit test fails if `tokens.ts` and `index.css` drift apart.
-- The map is the next feature to build, after the first green CI run.
+- Real photography can replace the drawn landscape scenes once licensed images are chosen (`docs/attribution.md`).

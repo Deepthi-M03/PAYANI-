@@ -5,9 +5,9 @@ import { api } from "../../lib/api";
 import type { Station } from "../../lib/types";
 
 /** Accessible station combobox: type a name or code, pick with arrows + Enter or click. */
-export function StationField({ label, value, onChange }: { label: string; value: string; onChange: (code: string) => void }) {
+export function StationField({ label, value, onChange, initialText }: { label: string; value: string; onChange: (code: string) => void; initialText?: string }) {
   const id = useId();
-  const [text, setText] = useState(value);
+  const [text, setText] = useState(initialText ?? value);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [debounced, setDebounced] = useState(text);
@@ -58,10 +58,10 @@ export function StationField({ label, value, onChange }: { label: string; value:
             choose(data[active]);
           } else if (e.key === "Escape") setOpen(false);
         }}
-        className="min-h-12 rounded-md border border-steel bg-surface px-3.5 text-base focus:border-primary"
+        className="min-h-12 w-full rounded-md border border-steel/70 bg-surface px-3.5 text-base transition-colors hover:border-steel focus:border-primary"
       />
       {open && data.length > 0 && (
-        <ul id={`${id}-list`} role="listbox" className="absolute top-full z-20 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface shadow-lg">
+        <ul id={`${id}-list`} role="listbox" className="absolute top-full z-30 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface py-1 shadow-[var(--shadow-raised)] motion-safe:animate-[rise_160ms_var(--ease-ui)]">
           {data.map((s, i) => (
             <li
               key={s.code}
@@ -72,12 +72,12 @@ export function StationField({ label, value, onChange }: { label: string; value:
                 e.preventDefault();
                 choose(s);
               }}
-              className={`flex cursor-pointer justify-between px-3.5 py-2.5 text-sm ${i === active ? "bg-mist" : ""}`}
+              className={`flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-sm text-ink ${i === active ? "bg-ivory" : ""}`}
             >
               <span>
-                {s.name} <span className="text-muted">· {s.state}</span>
+                {s.name}{s.state && <span className="text-muted"> · {s.state}</span>}
               </span>
-              <span className="font-mono font-semibold">{s.code}</span>
+              <span className="rounded bg-mist px-1.5 py-0.5 font-mono text-xs font-medium">{s.code}</span>
             </li>
           ))}
         </ul>

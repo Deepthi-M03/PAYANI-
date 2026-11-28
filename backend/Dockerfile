@@ -12,10 +12,10 @@ RUN pip install --no-cache-dir uv \
 WORKDIR /app
 # uv.lock is committed after the first `uv lock`; copied when present for reproducible builds.
 COPY pyproject.toml uv.lock* ./
-RUN uv sync --no-install-project --group dev
+RUN uv sync --locked --no-install-project --group dev
 
 COPY . .
-RUN uv sync --group dev && chown -R payani:payani /app
+RUN uv sync --locked --group dev && chown -R payani:payani /app
 
 USER payani
 EXPOSE 8000

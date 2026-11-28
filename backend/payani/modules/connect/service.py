@@ -8,6 +8,7 @@ Posts that look like resale or contain phone numbers / UPI IDs are held for mode
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -181,7 +182,7 @@ def announce_cancellation(db: Session, booking) -> None:
     from payani.modules.pulse.service import notify_now
     for leg in booking.journey["legs"]:
         c = db.scalar(select(TravelCommunity).where(TravelCommunity.train_number == leg["train_number"],
-                                                    TravelCommunity.journey_date == leg["train_origin_date"]))
+                                                    TravelCommunity.journey_date == date.fromisoformat(leg["train_origin_date"])))
         if c is None:
             continue
         db.add(CommunityPost(id=uuid7(), community_id=c.id, author_id=None, kind="system", status="visible",

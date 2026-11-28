@@ -14,11 +14,11 @@ const config = {
 export function Alert({ tone, title, children }: { tone: Tone; title: string; children?: ReactNode }) {
   const { icon: Icon, cls } = config[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={`flex gap-3 rounded-md p-4 ${cls}`}>
+    <div role={tone === "error" ? "alert" : "status"} className={`flex gap-3 rounded-md border border-current/15 p-4 ${cls}`}>
       <Icon aria-hidden className="mt-0.5 size-5 shrink-0" />
       <div className="text-sm">
         <p className="font-semibold">{title}</p>
-        {children && <div className="mt-1 text-ink">{children}</div>}
+        {children && <div className="mt-1 text-ink/90">{children}</div>}
       </div>
     </div>
   );

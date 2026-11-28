@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from payani.core.db import get_db, utcnow, uuid7
 from payani.core.errors import AppError
 from payani.core.security import constant_time_equals
-from payani.domain.catalog_synth import STATION_BY_CODE
 from payani.modules.book import catalog
 from payani.modules.book import service as book
 from payani.modules.identity.deps import current_user
@@ -179,6 +178,7 @@ def train_status(number: str, on: date = Query(alias="date"), db: Session = Depe
     t = next((t for t in catalog.timetable(db) if t.number == number), None)
     if t is None:
         raise AppError(404, "not-found", "Train not found.")
+    names = catalog.station_names(db)
     if not t.runs_on(on.weekday()):
         raise AppError(404, "not-running", "This train does not start on that date.")
     z = ZoneInfo("Asia/Kolkata")
@@ -189,7 +189,7 @@ def train_status(number: str, on: date = Query(alias="date"), db: Session = Depe
         arr = start + timedelta(minutes=s.arr) if s.arr is not None else None
         dep = start + timedelta(minutes=s.dep) if s.dep is not None else None
         passed = (dep or arr) <= now
-        stops.append({"seq": i, "code": s.station, "name": STATION_BY_CODE[s.station].name,
+        stops.append({"seq": i, "code": s.station, "name": names.get(s.station, s.station),
                       "scheduled_arrival": arr.isoformat() if arr else None,
                       "scheduled_departure": dep.isoformat() if dep else None, "distance_km": s.distance_km,
                       "passed_if_on_time": passed})
@@ -200,7 +200,7 @@ def train_status(number: str, on: date = Query(alias="date"), db: Session = Depe
     phase = "not_started" if now < first_dep else "completed" if now >= last_arr else "running"
     return {
         "train": {"number": t.number, "name": t.name}, "date": on.isoformat(), "stops": stops,
-        "schedule": {"confidence": "scheduled", "source": "payani-synthetic-v1"},
+        "schedule": {**catalog.provenance(db), "running_days_known": t.days_known},
         "estimated": {"confidence": "estimated", "phase": phase, "position": position if phase == "running" else None,
                       "note": "Assumes the train is on time. Not live tracking."},
         "live": {"confidence": "verified", "available": False,

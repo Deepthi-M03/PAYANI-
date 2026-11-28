@@ -15,6 +15,7 @@ from payani.modules.book.router import router as book_router
 from payani.modules.connect.router import router as connect_router
 from payani.modules.identity.router import router as identity_router
 from payani.modules.pulse.router import router as pulse_router
+from payani.modules.timetable.router import router as timetable_router
 
 
 @asynccontextmanager
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     api.include_router(book_router)
     api.include_router(pulse_router)
     api.include_router(connect_router)
+    api.include_router(timetable_router)
     app.include_router(api)
     app.include_router(health.router)
     return app

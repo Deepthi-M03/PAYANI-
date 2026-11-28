@@ -6,6 +6,7 @@ import {
   AdminAuditTab, AdminBookingsTab, AdminConfigTab, AdminLayout, AdminModerationTab, AdminNotificationsTab,
   AdminOverviewPage, AdminUsersTab,
 } from "../features/admin/AdminPages";
+import { AdminTimetableTab } from "../features/admin/TimetableAdmin";
 import { BookJourneyPage } from "../features/book/BookJourneyPage";
 import { SearchPage } from "../features/book/SearchPage";
 import { BookingDetailPage } from "../features/bookings/BookingDetailPage";
@@ -73,6 +74,7 @@ export const routes = [
           { path: "bookings", element: <RequireAuth permission="booking.read_all"><AdminBookingsTab /></RequireAuth> },
           { path: "notifications", element: <RequireAuth permission="analytics.read"><AdminNotificationsTab /></RequireAuth> },
           { path: "moderation", element: <RequireAuth permission="moderation.manage"><AdminModerationTab /></RequireAuth> },
+          { path: "timetable", element: <AdminTimetableTab /> },
           { path: "audit", element: <RequireAuth permission="audit.read"><AdminAuditTab /></RequireAuth> },
           { path: "config", element: <AdminConfigTab /> },
         ],

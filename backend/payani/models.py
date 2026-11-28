@@ -51,5 +51,6 @@ from payani.modules.pulse.models import (
     NotificationPreference,
     NotificationSchedule,
 )
+from payani.modules.timetable.models import TimetableImport
 
 __all__ = [name for name in dir() if name[0].isupper()]

@@ -6,7 +6,7 @@ test("register, reach the dashboard, survive a reload, sign out", async ({ page 
   const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: /Plan, compare and book/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /better.together/ })).toBeVisible();
   await page.getByRole("link", { name: "Create account", exact: true }).click();
 
   await page.getByLabel("Your name").fill("E2E Traveller");
@@ -15,18 +15,21 @@ test("register, reach the dashboard, survive a reload, sign out", async ({ page 
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "Hello, E2E Traveller" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening), E2E$/ })).toBeVisible();
   await expect(page.getByText("Simulated", { exact: true })).toBeVisible();
 
   // The access token is memory-only; a reload must restore the session via the refresh cookie.
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Hello, E2E Traveller" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening), E2E$/ })).toBeVisible();
 
   // Passengers do not see the admin area, and direct navigation bounces back.
-  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Administration" })).toHaveCount(0);
   await page.goto("/app/admin/users");
   await expect(page).toHaveURL(/\/app$/);
 
+  // On phones the navigation (and sign-out) lives in the menu drawer.
+  const menu = page.getByRole("button", { name: "Open menu" });
+  if (await menu.isVisible()) await menu.click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/app");

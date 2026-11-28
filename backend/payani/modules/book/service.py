@@ -17,7 +17,6 @@ from payani.core.db import utcnow, uuid7
 from payani.core.errors import AppError
 from payani.domain import routing
 from payani.domain.booking_state import Actor, TransitionError, allowed_events, next_state
-from payani.domain.catalog_synth import STATION_BY_CODE
 from payani.domain.group_batching import Traveller, plan_batches
 from payani.modules.book import catalog
 from payani.modules.book.models import (
@@ -49,15 +48,27 @@ SERVICE_CHARGE_PAISE = 0  # ADR 007: no service charge in v1
 
 # ------------------------------------------------------------------ journeys
 
+def effective_max_transfers(db: Session, requested: int) -> int:
+    """A national imported timetable is searched with at most one change, to keep search fast."""
+    return min(requested, 1) if catalog.is_large(db) else requested
+
+
 def search(db: Session, user_id, origin: str, dest: str, on: date, preference: str, max_transfers: int) -> list[dict]:
+    names = catalog.station_names(db)
     for code in (origin, dest):
-        if code not in STATION_BY_CODE:
-            raise AppError(422, "unknown-station", f"Unknown station code {code}.")
+        if code not in names:
+            raise AppError(422, "unknown-station", f"No train in the current timetable serves station code {code}.")
     if origin == dest:
         raise AppError(422, "same-station", "Origin and destination must be different.")
     started = time.perf_counter()
+    max_transfers = effective_max_transfers(db, max_transfers)
     opts = routing.SearchOptions(max_transfers=max_transfers, preference=preference)
-    results = [routing.journey_to_dict(j, on) for j in routing.search(catalog.timetable(db), origin, dest, on, opts)]
+    trains = catalog.timetable(db)
+    if catalog.is_large(db):
+        trains = routing.candidate_trains(trains, origin, dest, max_transfers)
+    data = catalog.provenance(db)
+    results = [routing.journey_to_dict(j, on, names, data)
+               for j in routing.search(trains, origin, dest, on, opts, names)]
     db.add(JourneySearch(id=uuid7(), user_id=user_id,
                          params={"from": origin, "to": dest, "date": on.isoformat(), "preference": preference,
                                  "max_transfers": max_transfers},
@@ -82,12 +93,18 @@ def find_journey(db: Session, journey_id: str, on: date) -> dict:
             raise AppError(422, "bad-journey", "That journey is no longer available.")
         legs.append(routing.Leg(routing.Instance(t, int(offset)), b, a))
     j = routing.Journey(legs)
-    routing.explain([j])
-    return routing.journey_to_dict(j, on)
+    names = catalog.station_names(db)
+    routing.explain([j], names)
+    return routing.journey_to_dict(j, on, names, catalog.provenance(db))
 
 
 def fare_for(journey: dict, travel_class: str, passengers: int) -> int:
+    """Simulated sandbox fare. Needs a distance; imported timetables do not always have one."""
     km = journey["distance_km"]
+    if km is None:
+        raise AppError(422, "fare-unavailable",
+                       "The source timetable has no distance for this journey, so the sandbox cannot price it.",
+                       "Book this journey on the official IRCTC website instead.")
     per = FARE_BASE[travel_class] * len(journey["legs"]) + FARE_PER_KM[travel_class] * km
     return int(round(per, -2)) * passengers
 
@@ -233,6 +250,10 @@ def create_booking(db: Session, user, journey_id: str, on: date, travel_class: s
     if group_id:
         _group_for(db, group_id, user.id)
     journey = find_journey(db, journey_id, on)
+    if any(not leg["classes"] for leg in journey["legs"]):
+        raise AppError(422, "class-unknown",
+                       "The source timetable does not list travel classes for this train, so the sandbox cannot book it.",
+                       "Book this journey on the official IRCTC website instead.")
     if any(travel_class not in leg["classes"] for leg in journey["legs"]):
         raise AppError(422, "class-unavailable", f"Class {travel_class} is not offered on every train in this journey.")
     departure = datetime.fromisoformat(journey["departure"])

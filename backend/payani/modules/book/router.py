@@ -1,5 +1,6 @@
 """PAYANI BOOK and INTELLIGENCE endpoints."""
 
+import functools
 import threading
 import uuid
 from datetime import date, timedelta
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from payani.core import maps
 from payani.core.db import get_db
 from payani.core.errors import AppError
 from payani.domain import catalog_synth, forecasting
@@ -27,9 +29,85 @@ Code = Field(min_length=2, max_length=8, pattern=r"^[A-Z]+$")
 
 # ------------------------------------------------------------------ catalogue
 
+def _station_out(s: dict) -> dict:
+    return {"code": s["code"], "name": s["name"], "state": s.get("state"), "lat": s.get("lat"), "lon": s.get("lon"),
+            "google_maps_url": maps.place_url(s["name"], s.get("lat"), s.get("lon"))}
+
+
+def _search_stations(directory: dict[str, dict], visits: dict[str, int], q: str, limit: int = 8) -> list[dict]:
+    q = q.strip().lower()
+    if not q:
+        return []
+    scored = []
+    for code, st in directory.items():
+        name = (st["name"] or "").lower()
+        if code.lower() == q:
+            rank = 0
+        elif code.lower().startswith(q):
+            rank = 1
+        elif name.startswith(q):
+            rank = 2
+        elif q in name:
+            rank = 3
+        else:
+            continue
+        scored.append((rank, -visits.get(code, 0), code))
+    return [directory[c] for _, _, c in sorted(scored)[:limit]]
+
+
 @router.get("/stations")
-def stations(q: str = Query("", max_length=40)):
-    return [{"code": s.code, "name": s.name, "state": s.state} for s in catalog_synth.station_search(q)]
+def stations(q: str = Query("", max_length=40), db: Session = Depends(get_db)):
+    """Stations served by the active timetable, matched by code or name."""
+    return [_station_out(s) for s in _search_stations(catalog.stations(db), catalog.station_visits(db), q)]
+
+
+@functools.lru_cache(maxsize=1)
+def _network_links() -> list[list[str]]:
+    """Pairs of consecutive stops served by the synthetic timetable (a schematic network)."""
+    pairs = set()
+    for t in catalog_synth.generate_trains():
+        for a, b in zip(t.stops, t.stops[1:], strict=False):
+            pairs.add(tuple(sorted((a.station, b.station))))
+    return [list(p) for p in sorted(pairs)]
+
+
+MAP_STATION_LIMIT = 160
+
+
+@router.get("/stations/map")
+def station_map(include: str = Query("", max_length=400), db: Session = Depends(get_db)):
+    """Stations to draw on the map, with positions. For the synthetic catalogue: every station
+    plus schematic links. For an imported national timetable: the busiest stations that have a
+    position, plus any codes passed in `include` (the stations of the journey on screen), and
+    no network links. Positions come from the source and are approximate."""
+    directory = catalog.stations(db)
+    active = catalog.active_import(db)
+    if active is None:
+        return {
+            "stations": [_station_out(s) for s in directory.values() if s["lat"] is not None],
+            "links": _network_links(),
+            "position_note": "Approximate station positions (about 1 km), hand-compiled.",
+            "links_note": "Schematic links between stations served by the synthetic timetable; not track geometry.",
+            "source": catalog_synth.SOURCE,
+            "missing_positions": [],
+        }
+    visits = catalog.station_visits(db)
+    wanted = [c.strip().upper() for c in include.split(",") if c.strip()][:40]
+    placed = [s for s in directory.values() if s["lat"] is not None and s["lon"] is not None]
+    busiest = sorted(placed, key=lambda s: -visits.get(s["code"], 0))[:MAP_STATION_LIMIT]
+    chosen = {s["code"]: s for s in busiest}
+    for code in wanted:
+        st = directory.get(code)
+        if st and st["lat"] is not None:
+            chosen[code] = st
+    return {
+        "stations": [_station_out(s) for s in chosen.values()],
+        "links": [],
+        "position_note": f"Approximate position from {active.source_name}.",
+        "links_note": None,
+        "source": active.source_key,
+        "missing_positions": [c for c in wanted if c in directory and directory[c]["lat"] is None],
+    }
 
 
 @router.get("/catalog/freshness")
@@ -59,7 +137,11 @@ def search(body: SearchBody, user: User | None = Depends(optional_user), db: Ses
         raise AppError(422, "date-out-of-range", "Choose a date from today up to 120 days ahead.")
     results = service.search(db, user.id if user else None, body.from_code, body.to_code, body.date,
                              body.preference, body.max_transfers)
-    return {"results": results, "freshness": catalog.freshness(db)}
+    used = service.effective_max_transfers(db, body.max_transfers)
+    note = ("Searched direct trains and journeys with one change: the national timetable is too large "
+            "to search two changes quickly.") if used < body.max_transfers else None
+    return {"results": results, "freshness": catalog.freshness(db),
+            "search": {"max_transfers": used, "requested_max_transfers": body.max_transfers, "note": note}}
 
 
 @router.get("/journeys/{journey_id}")

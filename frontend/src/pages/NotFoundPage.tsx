@@ -1,15 +1,17 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+
+import { LinkButton } from "../design-system/Button";
+import { LogoMark } from "../design-system/Logo";
 
 export function NotFoundPage() {
   const { t } = useTranslation();
   return (
-    <div className="mx-auto max-w-xl px-4 py-24 text-center">
-      <h1 className="font-display text-4xl">{t("common.notFoundTitle")}</h1>
-      <p className="mt-4 text-ink/80">{t("common.notFoundBody")}</p>
-      <Link to="/" className="mt-8 inline-flex min-h-11 items-center rounded-full bg-primary px-6 font-semibold text-white hover:bg-primary-hover">
-        {t("common.backHome")}
-      </Link>
+    <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
+      <LogoMark size={56} animated />
+      <p className="mt-6 font-mono text-sm text-saffron-text">404 · Off the line</p>
+      <h1 className="mt-2 font-display text-4xl">{t("common.notFoundTitle")}</h1>
+      <p className="mt-4 text-muted">{t("common.notFoundBody")}</p>
+      <LinkButton to="/" size="lg" className="mt-8">{t("common.backHome")}</LinkButton>
     </div>
   );
 }

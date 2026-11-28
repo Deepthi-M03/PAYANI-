@@ -174,8 +174,10 @@ def admin_notifications(limit: int = Query(50, ge=1, le=200), _: User = Depends(
 
 @router.get("/providers")
 def providers(_: User = Depends(require("admin.access")), db: Session = Depends(get_db)):
+    fresh = catalog.freshness(db)
     return [
-        {"capability": "Timetable", "provider": "payani-synthetic", "mode": "sandbox", "status": catalog.freshness(db)["status"]},
+        {"capability": "Timetable", "provider": fresh.get("provider") or "none",
+         "mode": "imported (scheduled)" if fresh.get("label") == "scheduled" else "sandbox", "status": fresh["status"]},
         {"capability": "Booking", "provider": "payani-sandbox", "mode": "sandbox", "status": "ok"},
         {"capability": "Payments", "provider": "payani-sandbox-pay", "mode": "sandbox", "status": "ok"},
         {"capability": "Train status", "provider": "schedule-only", "mode": "sandbox", "status": "ok"},

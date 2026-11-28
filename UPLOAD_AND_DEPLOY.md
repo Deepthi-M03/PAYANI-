@@ -8,6 +8,32 @@ Right-click `PAYANI.zip` → **Extract All** → choose `C:\` as the destination
 Check that `C:\PAYANI` contains `backend`, `frontend`, `docs`, `.github` and `README.md`.
 (`.github` and `.gitignore` start with a dot; Windows shows them normally.)
 
+### Updating an existing copy (you already have `C:\PAYANI\PAYANI` with a `.git` folder)
+
+Use these steps to update a copy you already have:
+
+1. Extract the new ZIP somewhere else, for example `C:\PAYANI-new`.
+2. Copy the files over your project. This replaces and adds files, and leaves `.git`, `.env`, `node_modules` and `.venv` alone:
+
+   ```powershell
+   robocopy C:\PAYANI-new\PAYANI C:\PAYANI\PAYANI /E /XD node_modules .venv .git
+   ```
+
+3. One file was deleted in this update. Remove it yourself, because robocopy only adds and replaces files:
+
+   ```powershell
+   Remove-Item C:\PAYANI\PAYANI\frontend\public\icon.svg -ErrorAction SilentlyContinue
+   ```
+
+4. In GitHub Desktop, check the list of changed files, then **Commit** and **Push**. Make sure `.env` is **not** in the list.
+5. Apply the new migration (`0004`) before starting the backend:
+
+   ```powershell
+   cd C:\PAYANI\PAYANI\backend; .\.venv\Scripts\Activate.ps1; alembic upgrade head
+   ```
+
+   With Docker, the API container applies it on start.
+
 ## 2. Upload to GitHub with GitHub Desktop (recommended)
 
 The GitHub website accepts at most 100 files per upload and can skip folders whose names start

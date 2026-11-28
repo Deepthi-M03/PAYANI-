@@ -31,7 +31,7 @@ class Stop:
     station: str
     arr: int | None  # minutes after the train's origin-day midnight; None at origin
     dep: int | None  # None at destination
-    distance_km: int
+    distance_km: int | None  # None when the source timetable does not publish it
 
 
 @dataclass
@@ -42,6 +42,8 @@ class Train:
     running_days: int  # bitmask, Monday = bit 0 ... Sunday = bit 6, of the origin day
     classes: tuple[str, ...]
     stops: list[Stop] = field(default_factory=list)
+    days_known: bool = True  # False: the source has no days of operation (treated as daily, and said so)
+    distance_basis: str = "source"
 
     def runs_on(self, weekday: int) -> bool:
         return bool(self.running_days >> weekday & 1)

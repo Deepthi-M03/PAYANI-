@@ -6,6 +6,8 @@
 @theme {
   /* Express Navy (approved 27 Nov 2026). Text pairings are WCAG AA or better. */
   --color-navy: #0b1f3a; /* brand bars, headings on light: 16.5:1 on white */
+  --color-navy-800: #12294a; /* raised surfaces on navy */
+  --color-navy-700: #1b3760; /* hover on navy */
   --color-ink: #0b1f3a; /* body text */
   --color-muted: #4a5562; /* secondary text: 7.6:1 on white */
   --color-primary: #16335c; /* primary actions: white text 12.6:1 */
@@ -34,7 +36,9 @@
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --radius-card: 6px;
+  --radius-card: 8px;
+  --shadow-panel: 0 1px 2px rgba(11, 31, 58, 0.06), 0 1px 1px rgba(11, 31, 58, 0.04);
+  --shadow-raised: 0 12px 32px -12px rgba(11, 31, 58, 0.28);
 
   /* Motion tokens. Exits run at roughly 70% of the enter duration. */
   --ease-ui: cubic-bezier(0.2, 0, 0, 1);
@@ -80,3 +84,68 @@
   from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
 }
+
+@layer components {
+  /* Tables: quiet header, hairline rows, right-aligned numbers via .num */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .data-table thead th { background: #f8f9fa; color: var(--color-muted); font-weight: 500; font-size: 0.75rem; text-align: left;
+    padding: 0.625rem 1rem; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+  .data-table tbody td, .data-table tbody th { padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-line); vertical-align: middle; text-align: left; }
+  .data-table tbody tr:last-child td, .data-table tbody tr:last-child th { border-bottom: 0; }
+  .data-table tbody tr { transition: background-color var(--duration-instant) var(--ease-ui); }
+  .data-table tbody tr:hover { background: #fafbfc; }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+  .skeleton { background: linear-gradient(90deg, var(--color-mist) 0%, #f1f3f6 50%, var(--color-mist) 100%);
+    background-size: 200% 100%; border-radius: 4px; }
+  @media (prefers-reduced-motion: no-preference) { .skeleton { animation: shimmer 1.4s linear infinite; } }
+
+  /* Faint survey grid used behind maps and hero art */
+  .grid-bg { background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 48px 48px; }
+
+  .maplibregl-popup-content { border-radius: 8px !important; padding: 0 !important; box-shadow: var(--shadow-raised) !important; font-family: var(--font-sans); }
+  .maplibregl-ctrl-group { border-radius: 6px !important; box-shadow: var(--shadow-panel) !important; }
+}
+
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pulse-ring { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(2.2); opacity: 0; } }
+@keyframes node-land { 0% { transform: scale(0); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes letter-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Scroll reveals (src/motion/reveal.tsx). Hidden only after JS marks an element pending. */
+.reveal[data-reveal="pending"] { opacity: 0; transform: translate3d(0, var(--reveal-y, 18px), 0); }
+.reveal[data-reveal="shown"] { opacity: 1; transform: none;
+  transition: opacity 700ms var(--ease-ui) var(--reveal-delay, 0ms), transform 900ms var(--ease-ui) var(--reveal-delay, 0ms); }
+
+@layer components {
+/* Railway map markers (features/map/RailMap.tsx), shared by MapLibre and the simplified map. */
+.rm-station { position: relative; display: grid; place-items: center; width: 22px; height: 22px; border: 0; background: none; padding: 0; cursor: pointer; }
+.rm-station .rm-dot { width: 9px; height: 9px; border-radius: 999px; background: #ffffff; border: 2px solid var(--color-navy); box-shadow: 0 1px 2px rgba(11,31,58,.3);
+  transition: transform var(--duration-fast) var(--ease-ui), background-color var(--duration-fast); }
+.rm-station .rm-label { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  font: 600 11px/1 var(--font-sans); color: var(--color-navy); background: rgba(255,255,255,.94); padding: 3px 6px; border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(11,31,58,.18); opacity: 0; transition: opacity var(--duration-fast) var(--ease-ui); }
+.rm-station:hover .rm-dot, .rm-station:focus-visible .rm-dot { transform: scale(1.35); }
+.rm-station:hover .rm-label, .rm-station:focus-visible .rm-label, .rm-selected .rm-label,
+.rm-from .rm-label, .rm-to .rm-label, .rm-transfer .rm-label, .rm-hub .rm-label { opacity: 1; }
+.rm-hub:not(.rm-from):not(.rm-to) .rm-label { background: transparent; box-shadow: none; color: var(--color-muted); font-weight: 500; }
+.rm-from .rm-dot { width: 15px; height: 15px; border-width: 4px; }
+.rm-to .rm-dot { width: 15px; height: 15px; background: var(--color-saffron); border-color: #ffffff; box-shadow: 0 0 0 2px var(--color-saffron), 0 2px 4px rgba(11,31,58,.3); }
+.rm-transfer .rm-dot { width: 11px; height: 11px; border-radius: 2px; transform: rotate(45deg); border-color: var(--color-signal); }
+.rm-selected .rm-dot { box-shadow: 0 0 0 4px rgba(35,87,181,.25); }
+.rm-train { position: relative; width: 18px; height: 18px; display: grid; place-items: center; pointer-events: none; }
+.rm-train-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--color-signal); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(11,31,58,.35); }
+.rm-train-pulse { position: absolute; inset: 0; border-radius: 999px; background: rgba(35,87,181,.35); }
+  @media (prefers-reduced-motion: no-preference) { .rm-train-pulse { animation: pulse-ring 1.6s var(--ease-ui) infinite; } }
+}
+
+@keyframes train-run { from { transform: translateX(-560px); } to { transform: translateX(560px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .scene-train { animation: train-run 18s linear infinite; }
+}
+@keyframes grow { from { transform: scaleX(0); transform-origin: left; } to { transform: scaleX(1); transform-origin: left; } }
+@keyframes ticket-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes bar-up { from { transform: scaleY(0); } to { transform: scaleY(1); } }

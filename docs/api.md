@@ -15,6 +15,8 @@ Base path `/api/v1`. The interactive OpenAPI documentation at `http://localhost:
 | Me | GET `/me` | passenger | Profile, roles, permissions |
 | Catalogue | GET `/stations?q=` | public | Autocomplete |
 | Catalogue | GET `/catalog/freshness` | public | Source, snapshot date, licence |
+| Catalogue | GET `/timetable/status` | public | Label (simulated/scheduled), source, licence, publication and import dates, age, outdated warning |
+| Catalogue | GET `/stations/map` | public | Stations with positions plus schematic links (not track geometry) |
 | Catalogue | GET `/booking-policies` | public | Per-PNR caps with source and check date |
 | Journeys | POST `/journeys/search` | public | `{from_code,to_code,date,preference,max_transfers}` → ranked, explained options |
 | Journeys | GET `/journeys/{id}?date=` | public | Re-derive one option (server-side, tamper-proof) |
@@ -26,6 +28,10 @@ Base path `/api/v1`. The interactive OpenAPI documentation at `http://localhost:
 | Bookings | GET `/bookings`, `/bookings/{id}` | owner | List / detail with events, payments, refunds, allowed actions |
 | Bookings | POST `/bookings/{id}/pay` | owner | Sandbox payment + provider confirmation (`simulate`: `fail`, `waitlist`, `payment_fail`) |
 | Bookings | POST `/bookings/{id}/cancel` | owner | Cancel; full sandbox refund starts |
+| Timetable | GET `/admin/timetable/sources` | admin | Supported datasets with their known licence and date |
+| Timetable | GET `/admin/timetable/imports`, `/admin/timetable/imports/{id}` | admin | Current status, import history, full validation report |
+| Timetable | POST `/admin/timetable/imports?source=&file_name=&published_on=&licence=&licence_confirmed=true&retrieved_on=` | super admin (`provider.manage`) | Upload the dataset as the raw body (.zip or .csv, up to 200 MB); validate, then switch in one transaction |
+| Timetable | POST `/admin/timetable/withdraw` | super admin | Stop using the import; search returns to the simulated catalogue |
 | Bookings | GET `/bookings/{id}/handoff`, `/bookings/{id}/calendar.ics` | owner | IRCTC handoff steps; calendar with alarm |
 | Refunds | GET `/refunds` | passenger | Refund tracker |
 | Intelligence | GET `/intelligence/routes`, `/intelligence/forecast?route=&date=`, `/intelligence/model-card` | passenger | Synthetic-data forecasting |

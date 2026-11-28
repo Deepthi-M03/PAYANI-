@@ -27,13 +27,13 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
         id={inputId}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={`min-h-11 rounded-md border bg-surface px-3.5 text-base text-ink placeholder:text-muted ${
-          error ? "border-error" : "border-steel focus:border-primary"
+        className={`min-h-11 rounded-md border bg-surface px-3.5 text-base text-ink transition-colors placeholder:text-steel ${
+          error ? "border-error" : "border-steel/70 hover:border-steel focus:border-primary"
         }`}
         {...rest}
       />
       {hint && !error && (
-        <p id={hintId} className="text-xs text-ink/70">
+        <p id={hintId} className="text-xs text-muted">
           {hint}
         </p>
       )}

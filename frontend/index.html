@@ -2,14 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#F4EBDD" />
-    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1F3A" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="description" content="PAYANI — Travel Together. Book Smarter. Railway journey planning for groups." />
-    <title>PAYANI — Travel Together. Book Smarter.</title>
+    <meta name="description" content="PAYANI plans rail journeys for groups across India: direct trains and connections, valid group bookings, and reminders before every departure." />
+    <meta property="og:title" content="PAYANI — Group rail journeys across India" />
+    <meta property="og:image" content="/icon-512.png" />
+    <title>PAYANI — Group rail journeys across India</title>
+    <style>
+      /* Boot splash: shown while the app downloads, removed by src/main.tsx. Pure CSS, no JS. */
+      #boot { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #0b1f3a; transition: opacity 360ms cubic-bezier(.2,0,0,1), visibility 0s linear 360ms; }
+      #boot.done { opacity: 0; visibility: hidden; }
+      #boot .r { stroke-dasharray: 1; stroke-dashoffset: 1; animation: bootdraw 900ms cubic-bezier(.2,0,0,1) 80ms forwards; }
+      #boot .n { transform-origin: 24px 29px; transform: scale(0); animation: bootnode 420ms cubic-bezier(.2,0,0,1) 860ms forwards; }
+      #boot .w { margin-top: 18px; font: 600 15px/1 "IBM Plex Sans", system-ui, sans-serif; letter-spacing: .32em; color: #fff; opacity: 0; animation: bootfade 500ms ease 700ms forwards; }
+      @keyframes bootdraw { to { stroke-dashoffset: 0; } }
+      @keyframes bootnode { 70% { transform: scale(1.2); } to { transform: scale(1); } }
+      @keyframes bootfade { to { opacity: .9; } }
+      @media (prefers-reduced-motion: reduce) { #boot .r, #boot .n, #boot .w { animation: none; stroke-dashoffset: 0; transform: none; opacity: .9; } }
+    </style>
   </head>
   <body>
+    <div id="boot" aria-hidden="true">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <svg width="72" height="72" viewBox="0 0 48 48">
+          <path class="r" pathLength="1" d="M15 41V17.5a9.5 9.5 0 0 1 9.5-9.5h4a10.5 10.5 0 0 1 0 21H24" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="15" cy="41" r="3.4" fill="#0b1f3a" stroke="#fff" stroke-width="2.4" />
+          <circle class="n" cx="24" cy="29" r="4.6" fill="#e8731a" />
+        </svg>
+        <div class="w">PAYANI</div>
+      </div>
+    </div>
     <noscript>PAYANI needs JavaScript to run. Please enable it and reload.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

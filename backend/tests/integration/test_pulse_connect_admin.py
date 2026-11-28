@@ -117,7 +117,7 @@ def test_train_status_labels(client):
     trains = client.post("/api/v1/journeys/search", json={"from_code": "MAS", "to_code": "SBC",
                                                           "date": TRAVEL.isoformat()}).json()["results"][0]["legs"][0]
     res = client.get(f"/api/v1/trains/{trains['train_number']}/status?date={trains['train_origin_date']}").json()
-    assert res["schedule"]["confidence"] == "scheduled"
+    assert res["schedule"]["confidence"] == "simulated"
     assert res["estimated"]["confidence"] == "estimated"
     assert res["live"]["available"] is False
 

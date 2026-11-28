@@ -85,6 +85,14 @@ class SandboxPaymentProvider:
 IRCTC_URL = "https://www.irctc.co.in/nget/train-search"
 
 
+def _handoff_warning(data: dict) -> str:
+    if data.get("confidence") == "scheduled":
+        return (f"Train numbers and times come from a historical timetable ({data.get('source_name', data.get('source'))}, "
+                f"published {data.get('as_of')}). They may have changed: check the current schedule on IRCTC.")
+    return ("Train numbers in this preview are synthetic and will not exist on IRCTC. "
+            "Use the stations and dates to find real trains there.")
+
+
 def official_handoff(booking: dict) -> dict:
     """Everything a passenger needs to book the same trip on the official IRCTC site.
     PAYANI never logs in to IRCTC or submits anything there."""
@@ -98,8 +106,7 @@ def official_handoff(booking: dict) -> dict:
             for leg in legs
         ],
         "passengers": [p["name"] for p in booking["passengers"]],
-        "warning": "Train numbers in PAYANI v1 are synthetic and will not exist on IRCTC. "
-                   "Use the stations and dates to find real trains there.",
+        "warning": _handoff_warning(booking["journey"].get("data") or {}),
         "share_text": urlencode({"from": legs[0]["from"], "to": legs[-1]["to"], "date": legs[0]["departure"][:10]}),
     }
 

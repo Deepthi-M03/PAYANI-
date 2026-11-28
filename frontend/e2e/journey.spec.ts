@@ -1,4 +1,4 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const password = "a-long-test-password-2026";
 
@@ -32,7 +32,7 @@ test("search, book, pay in sandbox, set reminders, cancel and see the refund", a
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/\/app$/);
 
-  await page.getByRole("link", { name: "Search", exact: true }).first().click();
+  await page.getByRole("link", { name: "Search trains", exact: true }).first().click();
   await page.getByLabel("From", { exact: true }).fill("Chennai");
   await page.getByRole("option", { name: /Chennai Central/ }).click();
   await page.getByLabel("To", { exact: true }).fill("Bengaluru");
@@ -66,3 +66,5 @@ test("landing page is fully readable with reduced motion", async ({ browser }) =
   await expect(page.getByRole("link", { name: /Create a free account|Open dashboard/ })).toBeVisible();
   await context.close();
 });
+
+
